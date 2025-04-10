@@ -1,0 +1,7 @@
+-e /Users/sonson/Documents/code/moderntensor
+Pillow # Thư viện xử lý ảnh
+diffusers
+transformers
+torch
+accelerate
+sentencepiece

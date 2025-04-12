@@ -76,6 +76,21 @@ FUNDING_HOTKEY_NAME = os.getenv("FUNDING_HOTKEY_NAME", "hk1")     # Thay bằng 
 FUNDING_PASSWORD = os.getenv("FUNDING_PASSWORD", "sonlearn2003")                # Mật khẩu ví funding
 HOTKEY_BASE_DIR = os.getenv("HOTKEY_BASE_DIR", getattr(sdk_settings, 'HOTKEY_BASE_DIR', 'moderntensor'))
 
+#
+VALIDATOR_UID_STR2 = os.getenv("SUBNET1_VALIDATOR_UID2", "validator_002_subnet2_hex") # UID cho validator
+VALIDATOR_WALLET_ADDR2 = os.getenv("SUBNET1_VALIDATOR_ADDRESS2", "addr_test1qqzd49tpd3jhj8x5zccj4gs86jw5azmxh72aj4qu7qq5w2nkdkeqgaum48adxlmfrauaun4txvrkp80wr55l0xuy07fsmr9ayj") # Địa chỉ ví của validator
+VALIDATOR_API_ENDPOINT2 = os.getenv("SUBNET1_VALIDATOR_API_ENDPOINT2")
+
+# Cấu hình ví Funding (ví trả phí giao dịch)
+FUNDING_COLDKEY_NAME = os.getenv("FUNDING_COLDKEY_NAME2", "validator2") # Thay bằng coldkey của ví funding
+FUNDING_HOTKEY_NAME = os.getenv("FUNDING_HOTKEY_NAME2", "hk1")     # Thay bằng hotkey của ví funding
+FUNDING_PASSWORD = os.getenv("FUNDING_PASSWORD2", "sonlearn2003")                # Mật khẩu ví funding
+HOTKEY_BASE_DIR = os.getenv("HOTKEY_BASE_DIR2", getattr(sdk_settings, 'HOTKEY_BASE_DIR', 'moderntensor'))
+
+MINER_UID_STR2 = os.getenv("SUBNET1_MINER_ID2", "my_cool_image_miner_02") # UID cho miner
+MINER_WALLET_ADDR2 = os.getenv("SUBNET1_MINER_WALLET_ADDR", "addr_test1qqcxrwktpurgvrqt28xr5ha039j7ga59x33wp0r8dzkt4zysckcur8c2yu2975qwvtcg3gn73rf3v5e3wz0yaffkx7use04tnu") # Địa chỉ ví liên kết với miner (nếu có)
+MINER_API_ENDPOINT2 = os.getenv("SUBNET1_MINER_API_ENDPOINT2") # URL thực tế miner sẽ chạy (VÍ DỤ: http://<miner_ip>:9001)
+
 # Lượng ADA lock trong mỗi UTXO (ví dụ: 2 tADA)
 DATUM_LOCK_AMOUNT = 2_000_000
 
@@ -162,6 +177,31 @@ async def prepare_datums():
         )
         logger.info(f"Validator Datum prepared for UID: {VALIDATOR_UID_STR}")
 
+        miner_uid_bytes2 = MINER_UID_STR2.encode('utf-8')
+        miner_wallet_hash_bytes2 = hash_data(MINER_WALLET_ADDR2)
+        miner_api_bytes2 = MINER_API_ENDPOINT2.encode('utf-8')
+        miner_datum2 = MinerDatum(
+            uid=miner_uid_bytes2, subnet_uid=1, stake=0,
+            scaled_last_performance=int(0.5 * divisor), scaled_trust_score=int(0.5 * divisor),
+            accumulated_rewards=0, last_update_slot=0, performance_history_hash=hash_data([]),
+            wallet_addr_hash=miner_wallet_hash_bytes2, status=STATUS_ACTIVE, registration_slot=0,
+            api_endpoint=miner_api_bytes2,
+        )
+        logger.info(f"Miner Datum prepared for UID: {MINER_UID_STR}")
+
+        # Validator Datum
+        validator_uid_bytes2 = VALIDATOR_UID_STR2.encode('utf-8')
+        validator_wallet_hash_bytes2 = hash_data(VALIDATOR_WALLET_ADDR)
+        validator_api_bytes2 = VALIDATOR_API_ENDPOINT2.encode('utf-8')
+        validator_datum2 = ValidatorDatum(
+            uid=validator_uid_bytes2, subnet_uid=1, stake=0,
+            scaled_last_performance=int(0.8 * divisor), scaled_trust_score=int(0.8 * divisor),
+            accumulated_rewards=0, last_update_slot=0, performance_history_hash=hash_data([]),
+            wallet_addr_hash=validator_wallet_hash_bytes2, status=STATUS_ACTIVE, registration_slot=0,
+            api_endpoint=validator_api_bytes2,
+        )
+        logger.info(f"Validator Datum prepared for UID: {VALIDATOR_UID_STR2}")
+
     except Exception as e:
         logger.exception(f"Failed to create Datum objects: {e}")
         return
@@ -196,22 +236,39 @@ async def prepare_datums():
         builder = TransactionBuilder(context=context)
         builder.add_input(selected_input_utxo) # Thêm input tường minh
 
-        # Thêm output cho Miner Datum
+        # # Thêm output cho Miner Datum
+        # builder.add_output(
+        #     TransactionOutput(
+        #         address=contract_address,
+        #         amount=DATUM_LOCK_AMOUNT,
+        #         datum=miner_datum
+        #     )
+        # )
+
         builder.add_output(
             TransactionOutput(
                 address=contract_address,
                 amount=DATUM_LOCK_AMOUNT,
-                datum=miner_datum
+                datum=miner_datum2
             )
         )
-        # Thêm output cho Validator Datum
-        builder.add_output(
-            TransactionOutput(
-                address=contract_address,
-                amount=DATUM_LOCK_AMOUNT,
-                datum=validator_datum
-            )
-        )
+
+        # # Thêm output cho Validator Datum
+        # builder.add_output(
+        #     TransactionOutput(
+        #         address=contract_address,
+        #         amount=DATUM_LOCK_AMOUNT,
+        #         datum=validator_datum
+        #     )
+        # )
+
+        # builder.add_output(
+        #     TransactionOutput(
+        #         address=contract_address,
+        #         amount=DATUM_LOCK_AMOUNT,
+        #         datum=validator_datum2
+        #     )
+        # )
 
         logger.info("Building and signing the combined transaction...")
         signed_tx = builder.build_and_sign(

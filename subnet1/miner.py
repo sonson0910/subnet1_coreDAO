@@ -1,26 +1,37 @@
+# Thêm/Sửa trong file subnet1/miner.py
+
 import time
 import logging
-import traceback # Để ghi log lỗi chi tiết hơn
+import traceback
+import requests # <<<--- Đảm bảo import requests
+from typing import Optional # <<<--- Thêm Optional nếu chưa có
 
-# Import từ SDK Moderntensor (đã được cài đặt)
-# Đường dẫn import có thể cần điều chỉnh tùy thuộc vào cách bạn đóng gói SDK
+# Import từ SDK Moderntensor
 try:
-    from sdk.network.server import BaseMiner, TaskModel
+    # <<<--- Giờ cần thêm TaskModel vì handle_task dùng nó --->>>
+    from sdk.network.server import BaseMiner, TaskModel, ResultModel
 except ImportError:
     logging.error("Could not import BaseMiner or TaskModel from sdk.network.server. "
                   "Make sure the moderntensor SDK is installed correctly.")
-    # Định nghĩa lớp giả để tránh lỗi nếu import thất bại, nhưng miner sẽ không hoạt động
-    class TaskModel: pass
+    # Lớp giả để tránh lỗi nếu import thất bại
+    class TaskModel:
+         task_id: str = "dummy_task"
+         description: Optional[str] = None
+         deadline: Optional[str] = None
+         priority: Optional[int] = None
+         validator_endpoint: Optional[str] = None # Thêm vào lớp giả
+    class ResultModel: pass
     class BaseMiner:
-        def __init__(self, *args, **kwargs): pass
+        def __init__(self, *args, **kwargs):
+             self.validator_url = kwargs.get('validator_url') # Giữ lại để fallback
         def process_task(self, task: TaskModel) -> dict: return {}
+        # Không cần handle_task trong base giả nữa
 
 # Import từ các module khác trong subnet này
 try:
     from .models.image_generator import generate_image_from_prompt, image_to_base64
 except ImportError:
     logging.error("Could not import image generation functions from .models.image_generator.")
-    # Hàm giả lập nếu import lỗi
     def generate_image_from_prompt(*args, **kwargs): return None
     def image_to_base64(*args, **kwargs): return None
 
@@ -32,22 +43,10 @@ class Subnet1Miner(BaseMiner):
     Kế thừa BaseMiner từ SDK Moderntensor.
     """
     def __init__(self, validator_url, host="0.0.0.0", port=8000, miner_id="subnet1_miner_default"):
-        """
-        Khởi tạo Miner.
-
-        Args:
-            validator_url (str): URL của Validator API endpoint để gửi kết quả.
-                                (Ví dụ: "http://validator_ip:port/v1/miner/submit_result")
-            host (str): Địa chỉ IP để miner lắng nghe.
-            port (int): Cổng để miner lắng nghe.
-            miner_id (str): Định danh duy nhất cho miner này.
-        """
-        # Gọi __init__ của lớp cha (BaseMiner từ SDK)
+        # Gọi __init__ của lớp cha, vẫn truyền validator_url làm fallback
         super().__init__(validator_url=validator_url, host=host, port=port)
-        self.miner_id = miner_id # Lưu lại ID của miner này
-        logger.info(f"Subnet1Miner '{self.miner_id}' initialized. Sending results to: {self.validator_url}")
-        # Có thể thêm các khởi tạo khác ở đây, ví dụ tải trước model nếu cần
-        # (Hiện tại logic tải model nằm trong image_generator.py)
+        self.miner_id = miner_id
+        logger.info(f"Subnet1Miner '{self.miner_id}' initialized. Default validator URL (fallback): {self.validator_url}")
 
     def process_task(self, task: TaskModel) -> dict:
         """
@@ -57,6 +56,7 @@ class Subnet1Miner(BaseMiner):
         Args:
             task (TaskModel): Đối tượng task nhận từ validator.
                                Giả định task.description chứa prompt.
+                               *** Giả định task.validator_endpoint chứa URL validator gốc ***
 
         Returns:
             dict: Dictionary chứa kết quả theo cấu trúc ResultModel của SDK,
@@ -65,104 +65,103 @@ class Subnet1Miner(BaseMiner):
         logger.info(f"Miner '{self.miner_id}' processing task: {task.task_id}")
         start_time = time.time()
 
-        # --- 1. Lấy prompt từ task ---
-        # Giả định validator gửi prompt trong trường 'description' của TaskModel
-        # Bạn có thể thay đổi nếu validator gửi cấu trúc khác
+        # Lấy prompt và endpoint gốc từ task
         prompt = getattr(task, 'description', None)
+        # origin_validator_endpoint = getattr(task, 'validator_endpoint', None) # Lấy từ task
+        miner_id=self.miner_id.encode('utf-8').hex()
 
         if not prompt:
             logger.warning(f"Task {task.task_id} received without a valid prompt in description.")
             duration = time.time() - start_time
             return {
-                "result_id": f"result_{task.task_id}_error", # Thêm hậu tố lỗi
+                "result_id": task.task_id, # Sử dụng task_id làm result_id để validator dễ map
                 "description": "Error: No prompt provided in task description.",
                 "processing_time": duration,
-                "miner_id": self.miner_id
+                "miner_id": miner_id
+                # Không cần gửi lại endpoint validator
             }
 
-        logger.debug(f"Task {task.task_id} - Prompt: '{prompt}'")
+        logger.debug(f"Task {task.task_id} - Prompt: '{prompt}'") # Bỏ log endpoint ở đây
 
-        # --- 2. Gọi hàm sinh ảnh ---
+        # --- Phần sinh ảnh giữ nguyên ---
         generated_image = None
         error_message = None
         try:
-            # Gọi hàm từ image_generator.py
-            # Có thể truyền thêm cấu hình model nếu cần
             generated_image = generate_image_from_prompt(prompt=prompt)
         except Exception as e:
             logger.exception(f"Exception during image generation for task {task.task_id}: {e}")
             error_message = f"Generation Error: {type(e).__name__}"
-            # Ghi lại traceback để debug chi tiết hơn
             traceback.print_exc()
 
-        # --- 3. Xử lý kết quả và định dạng output ---
         duration = time.time() - start_time
         image_base64_string = None
 
         if generated_image:
             logger.info(f"Task {task.task_id} - Image generated successfully in {duration:.2f}s.")
-            # Chuyển ảnh thành base64 để gửi đi
             image_base64_string = image_to_base64(generated_image, format="PNG")
             if not image_base64_string:
                 logger.error(f"Task {task.task_id} - Failed to convert generated image to base64.")
                 error_message = "Error: Failed to encode image result."
-
         elif not error_message:
-            # Hàm generate trả về None nhưng không có exception
             logger.warning(f"Task {task.task_id} - Image generation returned None without error.")
             error_message = "Error: Image generation failed silently."
+        # ------------------------------
 
-        # --- 4. Tạo payload trả về ---
-        # Cấu trúc này cần khớp với ResultModel trong sdk/network/server.py
-        # và endpoint /v1/miner/submit_result
+        # Tạo payload kết quả (khớp ResultModel)
         result_payload = {
-            "result_id": task.task_id, 
-            # Trường 'description' sẽ chứa ảnh base64 hoặc thông báo lỗi
+            "result_id": task.task_id, # Nên dùng task_id để validator dễ map lại
             "description": image_base64_string if image_base64_string else error_message,
             "processing_time": duration,
-            "miner_id": self.miner_id
-            # Bạn có thể thêm các trường metadata khác vào description nếu muốn, ví dụ:
-            # "description": json.dumps({"image_base64": ..., "model_used": ...})
+            "miner_id": miner_id
         }
-
         logger.debug(f"Task {task.task_id} - Prepared result payload (desc length: {len(result_payload.get('description', '')) if result_payload.get('description') else 0})")
         return result_payload
 
-# --- (Tùy chọn) Thêm logic chạy miner trực tiếp từ file này để test ---
-# if __name__ == '__main__':
-#     import uvicorn
-#     # Cấu hình logging cơ bản
-#     logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+    # <<<--- THÊM PHƯƠNG THỨC OVERRIDE NÀY --->>>
+    def handle_task(self, task: TaskModel):
+        """
+        (Override) Xử lý task, lấy endpoint validator gốc từ task, và gửi kết quả về đó.
+        """
+        # 1. Gọi process_task của chính lớp này để lấy dict kết quả
+        result_payload = self.process_task(task)
 
-#     # Lấy URL validator từ biến môi trường hoặc đặt giá trị mặc định
-#     validator_api_url = os.getenv("VALIDATOR_URL", "http://127.0.0.1:8001/v1/miner/submit_result")
-#     miner_host = os.getenv("MINER_HOST", "0.0.0.0")
-#     miner_port = int(os.getenv("MINER_PORT", 9000)) # Dùng cổng khác validator
-#     my_miner_id = os.getenv("MINER_ID", "subnet1_miner_test_01")
+        # 2. Xác định URL đích để gửi kết quả
+        target_url = getattr(task, 'validator_endpoint', None) # Lấy từ đối tượng task
 
-#     if not validator_api_url:
-#         logger.error("VALIDATOR_URL environment variable is not set. Exiting.")
-#     else:
-#         logger.info(f"Starting Subnet1Miner '{my_miner_id}'...")
-#         logger.info(f"Listening on: {miner_host}:{miner_port}")
-#         logger.info(f"Reporting results to: {validator_api_url}")
+        # 3. Kiểm tra và gửi kết quả
+        if target_url and isinstance(target_url, str) and target_url.startswith(("http://", "https://")):
+            # Thêm đường dẫn endpoint cụ thể của validator để nhận kết quả
+            submit_url = target_url.rstrip('/') + "/v1/miner/submit_result"
+            logger.info(f"Miner '{self.miner_id}' sending result for task {task.task_id} to originating validator: {submit_url}")
+            try:
+                # Sử dụng submit_url đã có path đầy đủ
+                response = requests.post(submit_url, json=result_payload, timeout=10) # Tăng timeout
+                response.raise_for_status() # Kiểm tra lỗi HTTP >= 400
+                try:
+                     logger.info(f"Miner '{self.miner_id}' - Validator response ({response.status_code}) from {submit_url}: {response.json()}")
+                except requests.exceptions.JSONDecodeError:
+                     logger.info(f"Miner '{self.miner_id}' - Validator response ({response.status_code}) from {submit_url}: {response.text[:200]} (Non-JSON)")
 
-#         # Khởi tạo miner của subnet này
-#         miner_instance = Subnet1Miner(
-#             validator_url=validator_api_url,
-#             host=miner_host,
-#             port=miner_port,
-#             miner_id=my_miner_id
-#         )
+            except requests.exceptions.Timeout:
+                 logger.error(f"Miner '{self.miner_id}' - Timeout sending result for task {task.task_id} to {submit_url}")
+            except requests.exceptions.RequestException as e:
+                 logger.error(f"Miner '{self.miner_id}' - Error sending result for task {task.task_id} to {submit_url}: {e}")
+            except Exception as e:
+                 logger.exception(f"Miner '{self.miner_id}' - Unexpected error sending result for task {task.task_id} to {submit_url}: {e}")
+        else:
+            # Ghi log lỗi nếu không tìm thấy endpoint hợp lệ trong task
+            logger.error(f"Miner '{self.miner_id}' - Could not find valid 'validator_endpoint' in task {task.task_id}. Cannot send result back to originator.")
+            # Fallback về URL cấu hình mặc định nếu có
+            if self.validator_url:
+                 fallback_url = self.validator_url.rstrip('/') + "/v1/miner/submit_result"
+                 logger.warning(f"Miner '{self.miner_id}' - Falling back to default validator URL: {fallback_url}")
+                 try:
+                      response = requests.post(fallback_url, json=result_payload, timeout=10)
+                      response.raise_for_status()
+                      logger.info(f"Fallback send to {fallback_url} successful (Status: {response.status_code}).")
+                 except Exception as fb_e:
+                      logger.error(f"Fallback send to {fallback_url} also failed: {fb_e}")
+            else:
+                 logger.error("No fallback validator URL configured either.")
 
-#         # Chạy FastAPI app bên trong BaseMiner
-#         # BaseMiner.run() sẽ gọi uvicorn.run(self.app, ...)
-#         # Lưu ý: BaseMiner.run() là blocking, nên nếu bạn cần chạy thêm logic
-#         # trong script này, bạn cần chạy uvicorn trong một thread riêng.
-#         # Tuy nhiên, cấu trúc BaseMiner đã xử lý việc nhận task trong thread riêng.
-#         try:
-#              miner_instance.run() # Gọi phương thức run của BaseMiner kế thừa
-#         except ImportError as e:
-#              logger.error(f"Could not run miner due to import error: {e}")
-#         except Exception as e:
-#              logger.exception(f"An error occurred while running the miner: {e}")
+    # run() được kế thừa từ BaseMiner

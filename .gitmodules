@@ -1,0 +1,3 @@
+[submodule "sdk/moderntensor"]
+	path = sdk/moderntensor
+	url = https://github.com/sonson0910/moderntensor.git

@@ -19,29 +19,22 @@ except ImportError:
              self.validator_scores = {}
              self.results_received = defaultdict(list)
              self.tasks_sent = {}
-             # Giả lập self.info nếu cần
              self.info = type('obj', (object,), {'uid': 'fake_validator_uid'})()
         def _create_task_data(self, miner_uid: str) -> Any: return None
-        def score_miner_results(self): pass
+        # Xóa score_miner_results giả lập
     class TaskAssignment: pass
     class MinerResult: pass
     class ValidatorScore: pass
 
-
 # Import từ các module trong subnet này
 try:
     from .scoring.clip_scorer import calculate_clip_score
-    # Import thêm datatypes nếu bạn có định nghĩa riêng
-    # from .datatypes import ImageTaskData, ImageResultData
 except ImportError:
     logging.error("Could not import scoring functions from .scoring.clip_scorer.")
-    # Hàm giả nếu import lỗi
     def calculate_clip_score(*args, **kwargs) -> float: return 0.0
 
 logger = logging.getLogger(__name__)
 
-# --- Danh sách prompt ví dụ ---
-# Bạn nên quản lý danh sách này tốt hơn (ví dụ: đọc từ file, database)
 DEFAULT_PROMPTS = [
     "A photorealistic image of an astronaut riding a horse on the moon.",
     "A watercolor painting of a cozy bookstore cafe in autumn.",
@@ -54,8 +47,6 @@ DEFAULT_PROMPTS = [
     "Cyberpunk warrior standing in a neon-lit alley.",
     "A tranquil zen garden with raked sand and stones.",
 ]
-# -----------------------------
-
 
 class Subnet1Validator(ValidatorNode):
     """
@@ -67,147 +58,113 @@ class Subnet1Validator(ValidatorNode):
     def _create_task_data(self, miner_uid: str) -> Any:
         """
         Tạo dữ liệu task (prompt) để gửi cho miner.
+        *** Đã cập nhật để thêm validator_endpoint ***
 
         Args:
             miner_uid (str): UID của miner sẽ nhận task (có thể dùng để tùy biến task).
 
         Returns:
-            Any: Dữ liệu task, trong trường hợp này là dict chứa prompt.
+            Any: Dữ liệu task, trong trường hợp này là dict chứa prompt và validator_endpoint.
                  Cấu trúc này cần được miner hiểu.
         """
         selected_prompt = random.choice(DEFAULT_PROMPTS)
         logger.debug(f"Creating task for miner {miner_uid} with prompt: '{selected_prompt}'")
 
+        # Lấy API endpoint của chính validator này từ self.info
+        # Cần đảm bảo self.info và self.info.api_endpoint đã được khởi tạo đúng
+        origin_validator_endpoint = getattr(self.info, 'api_endpoint', None)
+        if not origin_validator_endpoint:
+             # Xử lý trường hợp endpoint không có sẵn (quan trọng)
+             logger.error(f"Validator {getattr(self.info, 'uid', 'UNKNOWN')} has no api_endpoint configured in self.info. Cannot create task properly.")
+             # Có thể trả về None hoặc raise lỗi để ngăn gửi task không đúng
+             return None # Hoặc raise ValueError("Validator endpoint missing")
+
         # Tạo deadline ví dụ (ví dụ: 5 phút kể từ bây giờ)
-        # Bạn có thể đặt deadline cố định hoặc phức tạp hơn
         now = datetime.datetime.now(datetime.timezone.utc)
         deadline_dt = now + datetime.timedelta(minutes=5)
-        deadline_str = deadline_dt.isoformat() # Chuyển thành chuỗi ISO 8601
+        deadline_str = deadline_dt.isoformat()
 
         # Đặt priority mặc định
-        priority_level = random.randint(1, 5) # Hoặc đặt cố định
+        priority_level = random.randint(1, 5)
 
-        # Trả về dictionary chứa các trường description, deadline, priority
-        # **QUAN TRỌNG**: Đặt prompt vào trường 'description'
+        # Trả về dictionary chứa các trường cần thiết CHO MINER HIỂU
+        # Miner sẽ cần đọc 'description' để lấy prompt
+        # Miner sẽ cần đọc 'validator_endpoint' để biết gửi kết quả về đâu
         return {
             "description": selected_prompt, # Prompt chính là description của task
             "deadline": deadline_str,
-            "priority": priority_level
+            "priority": priority_level,
+            "validator_endpoint": origin_validator_endpoint # <<<--- THÊM DÒNG NÀY
         }
 
-    # --- 2. Override phương thức chấm điểm ---
-    # Chúng ta override toàn bộ `score_miner_results` để kiểm soát hoàn toàn
-    # việc gọi hàm chấm điểm `calculate_clip_score` của subnet này.
-    def score_miner_results(self):
+    # --- 2. Override phương thức CHẤM ĐIỂM CÁ NHÂN ---
+    # <<<--- THAY THẾ score_miner_results BẰNG HÀM NÀY --->>>
+    def _score_individual_result(self, task_data: Any, result_data: Any) -> float:
         """
-        Override phương thức chấm điểm từ ValidatorNode.
-        Lấy kết quả ảnh từ miner, gọi hàm tính CLIP score và lưu điểm.
+        (Override) Chấm điểm cho một kết quả cụ thể từ miner cho Subnet 1.
+        Hàm này được gọi bởi _score_current_batch trong ValidatorNode base class.
+
+        Args:
+            task_data: Dữ liệu của task đã gửi (dict chứa 'description' là prompt).
+            result_data: Dữ liệu kết quả miner trả về (dict chứa 'description' là ảnh base64 hoặc lỗi).
+
+        Returns:
+            Điểm số float từ 0.0 đến 1.0.
         """
-        logger.info(f"[V:{self.info.uid}] Starting custom scoring for image generation...")
-        self.validator_scores = {}  # Xóa điểm của chu kỳ trước
+        score = 0.0 # Điểm mặc định nếu lỗi
+        try:
+            # 1. Lấy prompt gốc từ task_data
+            if not isinstance(task_data, dict) or "description" not in task_data:
+                 logger.warning(f"Scoring failed: Task data is not a dict or missing 'description'. Task data: {str(task_data)[:100]}...")
+                 return 0.0
+            original_prompt = task_data["description"]
 
-        # Lấy bản sao các kết quả đã nhận để xử lý
-        # Sử dụng self.results_received được cập nhật bởi endpoint API
-        # (Giả định endpoint `/v1/miner/submit_result` gọi `self.add_miner_result`
-        #  và `self.add_miner_result` lưu vào `self.results_received`)
-        # Cần đảm bảo luồng này hoạt động đúng trong SDK của bạn.
-        # => Trong ví dụ trước, self.add_miner_result lưu vào self.results_received
-        # => Nên lock khi truy cập nếu có khả năng ghi/đọc đồng thời
-        # Tuy nhiên, trong luồng run_cycle, score_miner_results thường được gọi
-        # sau khi đã chờ nhận kết quả xong, nên có thể không cần lock ở đây.
-        results_to_score = self.results_received.copy()
-        # Reset lại dict nhận kết quả cho chu kỳ sau (quan trọng)
-        self.results_received = defaultdict(list)
+            # 2. Lấy ảnh base64 từ result_data
+            #    result_data được cấu trúc trong add_miner_result của node base
+            #    nó chứa các key như 'description', 'processing_time', 'payload_data'
+            if not isinstance(result_data, dict) or "description" not in result_data:
+                  logger.warning(f"Scoring failed: Result data is not a dict or missing 'description'. Result data: {str(result_data)[:100]}...")
+                  return 0.0
+            image_base64 = result_data["description"]
 
-        scored_tasks = 0
-        for task_id, results_list in results_to_score.items():
-            assignment = self.tasks_sent.get(task_id)
+            # 3. Kiểm tra và tính điểm nếu có ảnh hợp lệ
+            if image_base64 and isinstance(image_base64, str) and not image_base64.startswith("Error:"):
+                logger.debug(f"Attempting to score image (base64 len: {len(image_base64)}) for prompt: '{original_prompt[:50]}...'")
+                try:
+                    # Decode base64 thành bytes
+                    image_bytes = base64.b64decode(image_base64)
 
-            # Kiểm tra xem có task tương ứng và task đó có prompt không
-            if not assignment:
-                logger.warning(f"Scoring skipped: Task assignment not found for task_id {task_id}.")
-                continue
-            # Giả định task_data là dict chứa "prompt" như đã tạo ở _create_task_data
-            if not isinstance(assignment.task_data, dict) or "prompt" not in assignment.task_data:
-                 logger.warning(f"Scoring skipped: Task data for {task_id} does not contain 'prompt'. Data: {assignment.task_data}")
-                 continue
-
-            original_prompt = assignment.task_data["prompt"]
-            miner_assigned = assignment.miner_uid
-            if task_id not in self.validator_scores:
-                self.validator_scores[task_id] = []
-
-            # Chỉ chấm điểm kết quả đầu tiên hợp lệ từ đúng miner được giao
-            processed_task_for_miner = False
-            for result in results_list:
-                if result.miner_uid == miner_assigned:
-                    score = 0.0 # Điểm mặc định nếu lỗi
-                    try:
-                        # Lấy ảnh base64 từ trường 'description' của result payload
-                        # Đây là giả định dựa trên cách Subnet1Miner định dạng kết quả
-                        image_base64 = result.result_data.get("description") if isinstance(result.result_data, dict) else None
-
-                        if image_base64 and isinstance(image_base64, str) and not image_base64.startswith("Error:"):
-                            logger.debug(f"Attempting to score image (base64 len: {len(image_base64)}) for task {task_id}...")
-                            # Decode base64 thành bytes
-                            image_bytes = base64.b64decode(image_base64)
-
-                            # Gọi hàm tính CLIP score từ scoring module của subnet
-                            score = calculate_clip_score(
-                                prompt=original_prompt,
-                                image_bytes=image_bytes
-                                # Có thể truyền model_name từ config nếu muốn
-                            )
-                            # Đảm bảo điểm nằm trong khoảng [0, 1]
-                            score = max(0.0, min(1.0, score))
-                            logger.info(f"  Scored Miner {result.miner_uid} for task {task_id}: {score:.4f}")
-
-                        elif image_base64 and image_base64.startswith("Error:"):
-                             logger.warning(f"Miner {result.miner_uid} reported an error for task {task_id}: {image_base64}. Assigning score 0.")
-                             score = 0.0
-                        else:
-                            logger.warning(f"No valid image data (base64) found in result for task {task_id} from miner {result.miner_uid}. Assigning score 0.")
-                            score = 0.0
-
-                    except Exception as e:
-                        logger.exception(f"Error during scoring task {task_id} for miner {result.miner_uid}: {e}. Assigning score 0.")
-                        score = 0.0 # Gán điểm 0 nếu có lỗi xảy ra
-
-                    # Tạo đối tượng ValidatorScore
-                    val_score = ValidatorScore(
-                        task_id=task_id,
-                        miner_uid=result.miner_uid,
-                        validator_uid=self.info.uid, # UID của validator này
-                        score=score
-                        # timestamp được tự động gán
+                    # Gọi hàm tính CLIP score từ scoring module của subnet
+                    score = calculate_clip_score(
+                        prompt=original_prompt,
+                        image_bytes=image_bytes
                     )
-                    self.validator_scores[task_id].append(val_score)
-                    processed_task_for_miner = True
-                    scored_tasks += 1
-                    break # Chỉ chấm điểm kết quả đầu tiên từ đúng miner
+                    score = max(0.0, min(1.0, score)) # Đảm bảo trong khoảng [0, 1]
+                    logger.info(f"  Scored result for prompt '{original_prompt[:50]}...': {score:.4f}")
 
-            if not processed_task_for_miner:
-                 logger.warning(f"No valid result found from assigned miner {miner_assigned} for task {task_id}. Assigning score 0.")
-                 # Tạo điểm 0.0 nếu không có kết quả hợp lệ từ miner được giao
-                 val_score = ValidatorScore(
-                      task_id=task_id, miner_uid=miner_assigned,
-                      validator_uid=self.info.uid, score=0.0
-                 )
-                 self.validator_scores[task_id].append(val_score)
+                except base64.binascii.Error as b64_err:
+                     logger.error(f"Scoring failed: Invalid base64 data received. Error: {b64_err}")
+                     score = 0.0
+                except ImportError:
+                     logger.error("calculate_clip_score function is not available. Assigning score 0.")
+                     score = 0.0
+                except Exception as clip_err:
+                    logger.exception(f"Error during CLIP score calculation: {clip_err}. Assigning score 0.")
+                    score = 0.0
 
+            elif image_base64 and image_base64.startswith("Error:"):
+                 logger.warning(f"Miner reported an error in result data: {image_base64}. Assigning score 0.")
+                 score = 0.0
+            else:
+                logger.warning(f"No valid image data (base64) found in result description. Assigning score 0.")
+                score = 0.0
 
-        logger.info(f"Custom scoring finished. Generated scores for {len(self.validator_scores)} tasks (total score entries: {scored_tasks}).")
+        except Exception as e:
+            logger.exception(f"Unexpected error during result scoring preparation: {e}. Assigning score 0.")
+            score = 0.0
 
-    # Các phương thức khác của ValidatorNode (ví dụ: select_miners, send_task_and_track,
-    # broadcast_scores, run_consensus_and_penalties, commit_updates...)
-    # sẽ được kế thừa từ lớp cha trong SDK và hoạt động dựa trên
-    # kết quả của _create_task_data và score_miner_results đã override ở đây.
+        return score
 
-# --- (Tùy chọn) Thêm logic chạy validator trực tiếp từ file này để test ---
-# if __name__ == '__main__':
-#     import asyncio
-#     # ... (logic tương tự như trong sdk/consensus/node.py/main_validator_loop)
-#     # 1. Load config (UID, keys, context...)
-#     # 2. Tạo ValidatorInfo
-#     # 3. Khởi tạo validator_node = Subnet1Validator(...)
-#     # 4. Chạy asyncio.run(validator_node.run_cycle()) hoặc vòng lặp tương tự
+    # --- KHÔNG CÒN PHƯƠNG THỨC score_miner_results Ở ĐÂY ---
+
+    # Các phương thức khác của ValidatorNode được kế thừa và sử dụng logic mới.

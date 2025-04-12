@@ -1,83 +1,155 @@
+# Trong file: scripts/run_miner.py
+
 import os
 import sys
 import logging
+import asyncio # Thêm asyncio
+import threading # Có thể dùng thread nếu muốn chạy song song blocking
 from pathlib import Path
 from dotenv import load_dotenv
-
+from typing import Optional
 # --- Thêm đường dẫn gốc của project vào sys.path ---
-# Điều này cần thiết để import các module từ thư mục 'subnet1'
-# khi chạy script từ thư mục 'scripts' hoặc thư mục gốc.
-project_root = Path(__file__).parent.parent # Lấy thư mục gốc (moderntensor-subnet1)
+# (Giữ nguyên)
+project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
-# -------------------------------------------------
 
-# Import lớp Miner của subnet này
+# --- Import các lớp cần thiết ---
 try:
     from subnet1.miner import Subnet1Miner
+    # Import MinerAgent từ SDK
+    from sdk.agent.miner_agent import MinerAgent
+    # Import các thành phần khác từ SDK nếu cần (keymanager, settings,...)
+    from sdk.config.settings import settings as sdk_settings
+    from sdk.keymanager.decryption_utils import decode_hotkey_skey
+    from pycardano import ExtendedSigningKey # Import ExtendedSigningKey
 except ImportError as e:
-    print(f"Error: Could not import Subnet1Miner. "
-          f"Ensure you are in the correct directory and the SDK is installed. Details: {e}")
+    print(f"Error: Could not import required classes. Details: {e}")
     sys.exit(1)
 
-# --- Tải biến môi trường từ file .env ở thư mục gốc ---
+# --- Tải biến môi trường (.env) ---
+# (Giữ nguyên)
 env_path = project_root / '.env'
-if env_path.exists():
-    print(f"Loading environment variables from: {env_path}")
-    load_dotenv(dotenv_path=env_path, override=True)
-else:
-    print(f"Warning: .env file not found at {env_path}. Using default values or existing environment variables.")
-# ------------------------------------------------------
+load_dotenv(dotenv_path=env_path, override=True)
 
 # --- Cấu hình Logging ---
+# (Giữ nguyên)
 log_level_str = os.getenv('LOG_LEVEL', 'INFO').upper()
 log_level = getattr(logging, log_level_str, logging.INFO)
 logging.basicConfig(level=log_level, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
 logger = logging.getLogger(__name__)
-# ------------------------
 
-def run_miner_instance():
-    """Hàm chính để cấu hình và chạy miner."""
+# --- Hàm chạy chính (Sửa đổi) ---
+async def run_miner_processes():
+    """Hàm async để cấu hình và chạy cả Miner Server và Miner Agent."""
 
-    # --- Lấy cấu hình từ biến môi trường ---
-    # **QUAN TRỌNG**: URL này phải trỏ đúng đến endpoint API của validator
-    # mà miner cần gửi kết quả về (thường là /v1/miner/submit_result)
-    validator_url = os.getenv("SUBNET1_VALIDATOR_URL")
-    if not validator_url:
-        logger.error("FATAL: Environment variable SUBNET1_VALIDATOR_URL is not set. Miner cannot report results.")
-        sys.exit(1)
+    # === Cấu hình cho Subnet1Miner (Xử lý Task AI) ===
+    validator_result_submit_url = os.getenv("SUBNET1_VALIDATOR_URL") # URL validator nhận kết quả AI
+    if not validator_result_submit_url:
+        logger.error("FATAL: SUBNET1_VALIDATOR_URL (for AI results) is not set.")
+        return
+    miner_host = os.getenv("SUBNET1_MINER_HOST", "0.0.0.0")
+    miner_port = int(os.getenv("SUBNET1_MINER_PORT", 9001))
+    miner_id_for_server = os.getenv("SUBNET1_MINER_ID", f"subnet1_miner_{miner_port}") # ID dùng trong log của server
 
-    miner_host = os.getenv("SUBNET1_MINER_HOST", "0.0.0.0") # Lắng nghe trên tất cả interfaces
-    miner_port = int(os.getenv("SUBNET1_MINER_PORT", 9001)) # Chọn cổng cho miner subnet 1
-    miner_id = os.getenv("SUBNET1_MINER_ID", f"subnet1_miner_{miner_port}") # Tạo ID mặc định
+    logger.info("--- Subnet 1 Miner AI Task Server Configuration ---")
+    logger.info(f"Miner ID (Server Log) : {miner_id_for_server}")
+    logger.info(f"Listening on          : {miner_host}:{miner_port}")
+    logger.info(f"Validator Submit URL  : {validator_result_submit_url}")
+    logger.info("-------------------------------------------------")
 
-    logger.info("--- Subnet 1 Miner Configuration ---")
-    logger.info(f"Miner ID          : {miner_id}")
-    logger.info(f"Listening on      : {miner_host}:{miner_port}")
-    logger.info(f"Validator Endpoint: {validator_url}")
-    logger.info(f"Log Level         : {log_level_str}")
-    logger.info("------------------------------------")
+    # === Cấu hình cho MinerAgent (Cập nhật Blockchain) ===
+    miner_uid_hex = miner_id_for_server.encode('utf-8')
+    miner_coldkey_name = os.getenv("MINER_COLDKEY_NAME")
+    miner_hotkey_name = os.getenv("MINER_HOTKEY_NAME")
+    miner_password = os.getenv("MINER_HOTKEY_PASSWORD")
+    # Lấy URL của validator để fetch kết quả consensus
+    validator_consensus_api_url = os.getenv("SUBNET1_VALIDATOR_API_ENDPOINT") # Ví dụ: http://127.0.0.1:8001
+    miner_check_interval = int(os.getenv("MINER_AGENT_CHECK_INTERVAL", 300)) # Giây
 
-    # --- Khởi tạo và chạy Miner ---
+    # Kiểm tra config agent
+    if not all([miner_uid_hex, miner_coldkey_name, miner_hotkey_name, miner_password, validator_consensus_api_url]):
+        missing_agent_configs = [
+            k for k, v in {
+                "MINER_UID_HEX": miner_uid_hex,
+                "MINER_COLDKEY_NAME": miner_coldkey_name,
+                "MINER_HOTKEY_NAME": miner_hotkey_name,
+                "MINER_HOTKEY_PASSWORD": miner_password,
+                "VALIDATOR_CONSENSUS_API_URL": validator_consensus_api_url
+            }.items() if not v
+        ]
+        logger.error(f"FATAL: Missing Miner Agent configurations in .env: {missing_agent_configs}")
+        return
+
+    logger.info("--- Miner Agent (Blockchain Update) Configuration ---")
+    logger.info(f"Miner UID (Hex)       : {miner_uid_hex}")
+    logger.info(f"Coldkey Name          : {miner_coldkey_name}")
+    logger.info(f"Hotkey Name           : {miner_hotkey_name}")
+    logger.info(f"Validator Result API  : {validator_consensus_api_url}")
+    logger.info(f"Check Interval (s)    : {miner_check_interval}")
+    logger.info("---------------------------------------------------")
+
+    # Load khóa ký cho Miner Agent
+    miner_payment_skey: Optional[ExtendedSigningKey] = None
+    miner_stake_skey: Optional[ExtendedSigningKey] = None
     try:
-        miner_instance = Subnet1Miner(
-            validator_url=validator_url,
-            host=miner_host,
-            port=miner_port,
-            miner_id=miner_id
+        base_dir_agent = os.getenv("HOTKEY_BASE_DIR", "moderntensor") # Dùng thư mục riêng hoặc chung
+        miner_payment_skey, miner_stake_skey = decode_hotkey_skey(
+            base_dir=base_dir_agent,
+            coldkey_name=miner_coldkey_name,
+            hotkey_name=miner_hotkey_name,
+            password=miner_password
+        )
+        if not miner_payment_skey: raise ValueError("Failed to decode miner payment key")
+        logger.info("Miner Agent signing keys loaded successfully.")
+    except Exception as key_err:
+        logger.exception(f"FATAL: Failed to load keys for Miner Agent: {key_err}")
+        return
+
+    # --- Khởi tạo các tiến trình ---
+    miner_agent_instance: Optional[MinerAgent] = None
+    try:
+        # Tạo instance MinerAgent
+        miner_agent_instance = MinerAgent(
+            miner_uid_hex=miner_uid_hex,
+            config=sdk_settings, # Truyền đối tượng settings SDK
+            miner_skey=miner_payment_skey, # type: ignore
+            miner_stake_skey=miner_stake_skey # type: ignore
         )
 
-        # Phương thức run() được kế thừa từ BaseMiner trong SDK
-        # Nó sẽ khởi động server uvicorn/FastAPI
-        logger.info(f"Starting Subnet1Miner server for '{miner_id}'...")
-        miner_instance.run() # Blocking call
+        # Tạo instance Subnet1Miner (cần chạy trong thread riêng vì nó blocking)
+        miner_server_instance = Subnet1Miner(
+            validator_url=validator_result_submit_url, # URL để gửi kết quả AI
+            host=miner_host,
+            port=miner_port,
+            miner_id=miner_id_for_server # ID cho log server
+        )
 
-    except ImportError as e:
-         # Bắt lỗi nếu import từ SDK thất bại (do chưa cài SDK đúng cách)
-         logger.error(f"ImportError: Could not run miner. Is the 'moderntensor' SDK installed correctly? Details: {e}")
-    except OSError as e:
-         logger.error(f"OS Error starting miner on {miner_host}:{miner_port}. Is the port already in use? Details: {e}")
+        # Chạy Miner Server trong một thread riêng
+        miner_server_thread = threading.Thread(target=miner_server_instance.run, daemon=True)
+        miner_server_thread.start()
+        logger.info(f"Started Subnet1Miner server in background thread for '{miner_id_for_server}'...")
+
+        # Đợi server khởi động một chút (tùy chọn)
+        await asyncio.sleep(5)
+
+        # Chạy Miner Agent trong vòng lặp async chính
+        logger.info(f"Starting Miner Agent loop for UID {miner_uid_hex}...")
+        await miner_agent_instance.run(
+            validator_api_url=validator_consensus_api_url,
+            check_interval_seconds=miner_check_interval
+        ) # Blocking call (cho đến khi có lỗi hoặc bị dừng)
+
     except Exception as e:
-        logger.exception(f"An unexpected error occurred while starting or running the miner: {e}")
+        logger.exception(f"An unexpected error occurred: {e}")
+    finally:
+        # Dọn dẹp khi kết thúc (ví dụ đóng client của agent)
+        if miner_agent_instance:
+            await miner_agent_instance.close()
+        logger.info("Miner processes finished.")
+
 
 if __name__ == "__main__":
-    run_miner_instance()
+    try:
+        asyncio.run(run_miner_processes())
+    except KeyboardInterrupt:
+        logger.info("Miner processes interrupted by user.")

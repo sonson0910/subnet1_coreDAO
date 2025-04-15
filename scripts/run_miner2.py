@@ -73,8 +73,8 @@ async def run_miner_processes():
     if not validator_result_submit_url:
         logger.error("FATAL: SUBNET1_VALIDATOR_URL2 (for AI results submission) is not set.")
         return
-    miner_host = os.getenv("SUBNET1_MINER_HOST", "0.0.0.0") # Lắng nghe trên tất cả interfaces
-    miner_port = int(os.getenv("SUBNET1_MINER_PORT", 9001)) # Cổng mặc định
+    miner_host = os.getenv("SUBNET1_MINER_HOST2", "0.0.0.0") # Lắng nghe trên tất cả interfaces
+    miner_port = int(os.getenv("SUBNET1_MINER_PORT2", 9002)) # Cổng mặc định
 
     logger.info("--- Subnet 1 Miner AI Task Server Configuration ---")
     logger.info(f"Miner Readable ID     : {miner_readable_id}")

@@ -5,6 +5,8 @@ import time
 import datetime
 from typing import Any, Dict, List, Optional
 from collections import defaultdict
+import os
+import binascii
 
 # Import từ SDK Moderntensor (đã cài đặt)
 try:
@@ -105,79 +107,90 @@ class Subnet1Validator(ValidatorNode):
             "validator_endpoint": origin_validator_endpoint # <<<--- THÊM DÒNG NÀY
         }
 
-    # --- 2. Override phương thức CHẤM ĐIỂM CÁ NHÂN ---
-    # <<<--- THAY THẾ score_miner_results BẰNG HÀM NÀY --->>>
+    # --- Restore the correct override method for scoring ---
     def _score_individual_result(self, task_data: Any, result_data: Any) -> float:
         """
         (Override) Chấm điểm cho một kết quả cụ thể từ miner cho Subnet 1.
-        Hàm này được gọi bởi _score_current_batch trong ValidatorNode base class.
+        This method is called by the base ValidatorNode class during its scoring phase.
 
         Args:
             task_data: Dữ liệu của task đã gửi (dict chứa 'description' là prompt).
-            # result_data giờ là dict chứa chi tiết kết quả từ miner
-            # (ví dụ: { 'output_description': 'base64...', 'processing_time_ms': 123, ...})
-            result_data: Dict[str, Any]
+            result_data: Dữ liệu kết quả miner trả về (dict chứa 'output_description', etc.).
 
         Returns:
             Điểm số float từ 0.0 đến 1.0.
         """
-        logger.debug(f"💯 [bold]Starting scoring process[/] for task result...")
-        score = 0.0 # Điểm mặc định nếu lỗi
+        logger.debug(f"💯 Scoring result via _score_individual_result...")
+        score = 0.0 # Default score
         start_score_time = time.time()
         try:
-            # 1. Lấy prompt gốc từ task_data
-            # task_data vẫn giữ cấu trúc cũ với prompt trong 'description'
+            # 1. Extract prompt and base64 image
             if not isinstance(task_data, dict) or "description" not in task_data:
                  logger.warning(f"Scoring failed: Task data is not a dict or missing 'description'. Task data: {str(task_data)[:100]}...")
                  return 0.0
             original_prompt = task_data["description"]
 
-            # 2. Lấy ảnh base64 hoặc lỗi từ result_data (dictionary mới)
             if not isinstance(result_data, dict):
                 logger.warning(f"Scoring failed: Received result_data is not a dictionary. Data: {str(result_data)[:100]}...")
                 return 0.0
+            image_base64 = result_data.get("output_description")
+            reported_error = result_data.get("error_details")
+            processing_time_ms = result_data.get("processing_time_ms", 0) # Optional
 
-            image_base64 = result_data.get("output_description") # Key mới chứa ảnh/lỗi
-            reported_error = result_data.get("error_details") # Key mới chứa lỗi chi tiết (nếu có)
-            processing_time_ms = result_data.get("processing_time_ms", 0)
-
-            # 3. Kiểm tra và tính điểm
+            # 2. Check for errors or missing image
             if reported_error:
-                # Nếu miner báo lỗi rõ ràng
                 logger.warning(f"Miner reported an error: '{reported_error}'. Assigning score 0.")
-                score = 0.0
-            elif image_base64 and isinstance(image_base64, str):
-                # Nếu có ảnh base64 hợp lệ
-                logger.debug(f"Attempting to score image (base64 len: {len(image_base64)}) for prompt: '{original_prompt[:50]}...'")
+                return 0.0
+            if not image_base64 or not isinstance(image_base64, str):
+                logger.warning(f"No valid image data (base64 string) found in result_data. Assigning score 0. Data: {str(result_data)[:100]}...")
+                return 0.0
+
+            # 3. Decode image and Save it
+            try:
+                image_bytes = base64.b64decode(image_base64)
+
+                # --- Start: Save Image Logic ---
+                output_dir = "result_image"
                 try:
-                    image_bytes = base64.b64decode(image_base64)
-                    score = calculate_clip_score(
-                        prompt=original_prompt,
-                        image_bytes=image_bytes
-                    )
-                    score = max(0.0, min(1.0, score))
-                    logger.info(f"  [bold blue]Scored result[/] for prompt '{original_prompt[:50]}...': [bold yellow]{score:.4f}[/] (Processing: {processing_time_ms}ms)")
-                except base64.binascii.Error as b64_err:
-                     logger.error(f"Scoring failed: Invalid base64 data received. Error: {b64_err}")
-                     score = 0.0
-                except ImportError:
-                     logger.error("calculate_clip_score function is not available. Assigning score 0.")
-                     score = 0.0
-                except Exception as clip_err:
-                    logger.exception(f"Error during CLIP score calculation: {clip_err}. Assigning score 0.")
-                    score = 0.0
-            else:
-                # Trường hợp không có lỗi báo cáo và cũng không có ảnh base64 hợp lệ
-                logger.warning(f"No valid image data (base64) or reported error found in result data. Assigning score 0. Data: {str(result_data)[:100]}...")
+                    os.makedirs(output_dir, exist_ok=True)
+                    # Using placeholder name for now, ideally pass task_id here.
+                    miner_uid = result_data.get("miner_uid", "unknown_miner")
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+                    # Need task_id for a truly unique name. Placeholder:
+                    filename = f"{output_dir}/result_{miner_uid[:8]}_{timestamp}.png"
+                    with open(filename, "wb") as f:
+                        f.write(image_bytes)
+                    logger.info(f"   Saved image result to: {filename}")
+                except OSError as file_err:
+                    logger.error(f"   Error saving image file to {filename}: {file_err}")
+                except Exception as e:
+                    logger.exception(f"   Unexpected error saving image: {e}")
+                # --- End: Save Image Logic ---
+
+            except (binascii.Error, ValueError, TypeError) as decode_err:
+                 logger.error(f"Scoring failed: Invalid base64 data received. Error: {decode_err}. Assigning score 0.")
+                 return 0.0 # Return 0 if decode fails
+
+            # 4. Calculate the actual score using CLIP
+            try:
+                score = calculate_clip_score(prompt=original_prompt, image_bytes=image_bytes)
+                score = max(0.0, min(1.0, score)) # Ensure score is [0, 1]
+                logger.info(f"   Calculated score using CLIP: [bold yellow]{score:.4f}[/] (Processing: {processing_time_ms}ms)")
+            except ImportError:
+                 logger.error("calculate_clip_score function is not available. Assigning score 0.")
+                 score = 0.0
+            except Exception as clip_err:
+                logger.exception(f"Error during CLIP score calculation: {clip_err}. Assigning score 0.")
                 score = 0.0
+
+            # Return the calculated score
+            scoring_duration = time.time() - start_score_time
+            logger.debug(f"🏁 Finished scoring process in {scoring_duration:.4f}s. Final score: [bold yellow]{score:.4f}[/]")
+            return score
 
         except Exception as e:
-            logger.exception(f"💥 Unexpected error during result scoring preparation: {e}. Assigning score 0.")
-            score = 0.0
-        
-        scoring_duration = time.time() - start_score_time
-        logger.debug(f"🏁 [bold]Finished scoring process[/] in {scoring_duration:.4f}s. Final score: [bold yellow]{score:.4f}[/]")
-        return score
+            logger.exception(f"💥 Unexpected error during scoring preparation: {e}. Assigning score 0.")
+            return 0.0
 
     # --- KHÔNG CÒN PHƯƠNG THỨC score_miner_results Ở ĐÂY ---
 
@@ -217,41 +230,6 @@ class Subnet1Validator(ValidatorNode):
         except Exception as e:
             logger.exception(f"💥 Error generating task data for miner '{miner.uid[:10]}...': {e}")
             return None
-
-    def _calculate_score_from_result(self, task_data: Any, result_data: Any) -> float:
-        """
-        (Override) Tính điểm P_miner,v dựa trên task và kết quả.
-
-        Đây là logic chấm điểm cốt lõi của Subnet 1.
-        Ví dụ: Sử dụng CLIP score để đo độ tương đồng giữa prompt và ảnh.
-        """
-        logger.debug(f"💯 Calculating score for result...")
-        try:
-            prompt = task_data.get("description")
-            image_base64 = result_data.get("image_base64")
-
-            if not prompt or not image_base64:
-                logger.warning("⚠️ Cannot calculate score: Missing prompt or image_base64 in data.")
-                return 0.0 # Điểm 0 nếu thiếu dữ liệu
-
-            # --- Logic chấm điểm cụ thể của Subnet 1 --- 
-            # Ví dụ giả định: Dùng CLIP score (cần import và load model)
-            # image = self._decode_image(image_base64)
-            # score = self.clip_scorer.calculate_score(prompt, image)
-
-            # >>> Thay thế bằng logic chấm điểm thực tế của bạn <<<
-            # Giả lập điểm số dựa trên độ dài prompt cho ví dụ:
-            score = min(1.0, len(prompt) / 100.0) 
-            logger.info(f"   Calculated score: [bold yellow]{score:.4f}[/]")
-            # -------------------------------------------
-
-            # Đảm bảo điểm nằm trong khoảng [0, 1]
-            score = max(0.0, min(1.0, score))
-            return score
-
-        except Exception as e:
-            logger.exception(f"💥 Error during score calculation: {e}")
-            return 0.0 # Trả về 0 nếu có lỗi
 
     # --- Các hàm helper tùy chọn cho Subnet 1 --- 
 

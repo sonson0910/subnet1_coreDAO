@@ -7,6 +7,14 @@ import traceback
 import requests
 import binascii # Thêm import nếu chưa có (dù không dùng trực tiếp ở đây)
 from typing import Optional
+import base64
+from io import BytesIO
+import os
+from fastapi.responses import JSONResponse
+import uvicorn
+from PIL import Image
+import httpx
+import random
 
 # Import từ SDK Moderntensor
 try:
@@ -45,6 +53,27 @@ except ImportError:
 # Lấy logger
 logger = logging.getLogger(__name__)
 
+# --- Constants/Config (Có thể chuyển ra file config riêng) ---
+# Thay thế bằng model ID bạn muốn dùng
+DEFAULT_MODEL_ID = "segmind/tiny-sd" 
+# Có thể đọc từ env var nếu muốn linh hoạt hơn
+MODEL_ID = os.getenv("IMAGEGEN_MODEL_ID", DEFAULT_MODEL_ID)
+
+# --- 1. Task Processing Logic ---
+def generate_image(prompt: str, seed: int = 42) -> bytes:
+    """
+    Placeholder for actual image generation logic using a model.
+    Simulates generation and returns dummy image bytes.
+    """
+    logger.info(f"🎨 Simulating image generation for prompt: '{prompt[:50]}...'")
+    # Simulate some processing time
+    time.sleep(random.uniform(0.5, 2.0))
+    # Create a dummy image representation (e.g., simple text as bytes)
+    dummy_image_content = f"Image for '{prompt}' with seed {seed}".encode('utf-8')
+    logger.info(f"🖼️ Simulated image generated (size: {len(dummy_image_content)} bytes).")
+    return dummy_image_content
+
+
 class Subnet1Miner(BaseMiner):
     """
     Miner chuyên thực hiện nhiệm vụ sinh ảnh cho Subnet 1.
@@ -56,7 +85,8 @@ class Subnet1Miner(BaseMiner):
         on_chain_uid_hex: str,    # UID hex on-chain *thực tế* của miner này
         host: str = "0.0.0.0",      # Host IP để server miner lắng nghe
         port: int = 8000,         # Cổng server miner lắng nghe
-        miner_id: str = "subnet1_miner_default" # ID dễ đọc để nhận diện/logging
+        miner_id: str = "subnet1_miner_default", # ID dễ đọc để nhận diện/logging
+        model_id: str = MODEL_ID,
     ):
         """
         Khởi tạo Subnet1Miner.
@@ -67,13 +97,16 @@ class Subnet1Miner(BaseMiner):
             host: Địa chỉ host server miner.
             port: Cổng server miner.
             miner_id: Tên định danh dễ đọc cho miner này (dùng cho logging).
+            model_id: ID của model sinh ảnh (ví dụ: từ Hugging Face).
         """
         # Gọi __init__ của lớp cha (BaseMiner)
-        super().__init__(validator_url=validator_url, host=host, port=port)
+        # Pass miner_uid to BaseMiner's __init__ as well
+        super().__init__(validator_url=validator_url, host=host, port=port, miner_uid=on_chain_uid_hex)
 
         # Lưu trữ các thông tin cấu hình
-        self.miner_id_readable = miner_id
-        self.on_chain_uid_hex = on_chain_uid_hex
+        self.miner_id_readable = miner_id or on_chain_uid_hex
+        self.on_chain_uid_hex = on_chain_uid_hex # Đã được gán bởi super() nếu dùng miner_uid
+        self.model_id = model_id
 
         # Kiểm tra định dạng UID hex (tùy chọn nhưng nên có)
         try:
@@ -83,87 +116,111 @@ class Subnet1Miner(BaseMiner):
              # Có thể raise lỗi ở đây để dừng khởi tạo nếu UID sai
              # raise ValueError("Invalid on_chain_uid_hex format.")
 
-        logger.info(f"Subnet1Miner '{self.miner_id_readable}' initialized.")
-        logger.info(f" - On-Chain UID Hex: {self.on_chain_uid_hex}")
-        logger.info(f" - Listening on: http://{self.host}:{self.port}")
-        logger.info(f" - Default Validator URL (fallback): {self.validator_url}")
+        logger.info(f"✨ [bold]Subnet1Miner[/] initializing for ID: [cyan]'{self.miner_id_readable}'[/] (UID: [yellow]{self.on_chain_uid_hex[:10]}...[/])")
+        logger.info(f"   👂 Listening on: [bold blue]{self.host}:{self.port}[/]")
+        logger.info(f"   ➡️ Validator Submit URL: [link={self.validator_url}]{self.validator_url}[/link]")
+        logger.info(f"   🧠 Using Image Gen Model: [magenta]{self.model_id}[/]")
+
+        # Tải model AI (có thể mất thời gian)
+        self.pipe = self._load_model()
+
+    def _load_model(self):
+        """Tải model sinh ảnh (ví dụ: Stable Diffusion)."""
+        logger.info(f"⏳ [bold]Loading image generation model[/] ([magenta]{self.model_id}[/])... This may take a while.")
+        start_load_time = time.time()
+        try:
+            # --- Logic tải model thực tế --- 
+            logger.debug("   Attempting to load model pipeline...")
+            # pipe = StableDiffusionPipeline.from_pretrained(self.model_id)
+            # # Tối ưu hóa nếu có GPU
+            # if torch.cuda.is_available():
+            #     logger.info("   🚀 CUDA detected. Moving model to GPU.")
+            #     pipe = pipe.to("cuda")
+            # elif torch.backends.mps.is_available(): # Cho Apple Silicon
+            #     logger.info("   🍏 MPS detected. Moving model to MPS.")
+            #     pipe = pipe.to("mps")
+            # else:
+            #     logger.info("   🐌 No GPU acceleration detected (CUDA/MPS). Running on CPU.")
+            
+            # >>> Thay bằng logic tải model của bạn <<<
+            # Giả lập việc tải model
+            time.sleep(2) 
+            pipe = "FAKE_MODEL_PIPELINE" # Placeholder
+            # --------------------------------
+            load_duration = time.time() - start_load_time
+            logger.info(f"✅🧠 [bold]Image generation model[/] ([magenta]{self.model_id}[/]) [bold green]loaded successfully[/] in {load_duration:.2f}s.")
+            return pipe
+        except Exception as e:
+            load_duration = time.time() - start_load_time
+            logger.exception(f"💥❌ [bold red]Failed[/] to load image generation model '{self.model_id}' after {load_duration:.2f}s: {e}")
+            # Có thể raise lỗi hoặc thoát nếu không load được model
+            raise RuntimeError(f"Could not load model: {self.model_id}") from e
 
     def process_task(self, task: TaskModel) -> dict:
         """
-        Override phương thức xử lý task từ BaseMiner.
-        Nhận task sinh ảnh, thực hiện và trả về kết quả dưới dạng dictionary.
-
-        Args:
-            task (TaskModel): Đối tượng task nhận từ validator.
-                               task.description chứa prompt.
-                               task.validator_endpoint chứa URL validator gốc.
-
-        Returns:
-            dict: Dictionary chứa kết quả theo cấu trúc ResultModel của SDK,
-                  sẵn sàng để gửi lại cho validator. Trường 'miner_id' sẽ
-                  chứa on_chain_uid_hex.
+        Thực hiện task và trả về dictionary chứa chi tiết kết quả.
+        Dict này sẽ được đặt vào trường 'result_data' của ResultModel.
         """
         # Sử dụng ID dễ đọc cho logging
-        logger.info(f"Miner '{self.miner_id_readable}' processing task: {task.task_id}")
+        logger.info(f"⛏️ [bold]Processing task[/] [yellow]{task.task_id}[/yellow] for miner '{self.miner_id_readable}'")
         start_time = time.time()
 
-        # Lấy prompt từ task description
-        prompt = getattr(task, 'description', None)
+        # Lấy prompt từ task.task_data (theo định nghĩa TaskModel mới)
+        prompt = task.description
 
-        # Xử lý trường hợp không có prompt
         if not prompt:
-            logger.warning(f"Task {task.task_id} received without a valid prompt in description.")
+            logger.warning(f"Task {task.task_id} received without a valid 'description' in task_data.")
             duration = time.time() - start_time
             return {
-                "result_id": task.task_id, # Sử dụng task_id làm result_id để validator dễ map
-                "description": "Error: No prompt provided in task description.",
-                "processing_time": duration,
-                "miner_id": self.on_chain_uid_hex # <<<--- Luôn dùng UID hex thật
+                "error": "No prompt provided in task_data.description",
+                "processing_time_ms": int(duration * 1000),
             }
 
         logger.debug(f"Task {task.task_id} - Prompt: '{prompt}'")
 
-        # --- Thực hiện sinh ảnh ---
+        # --- Thực hiện sinh ảnh --- 
         generated_image = None
         error_message = None
-        try:
-            # Gọi hàm sinh ảnh từ module models
-            generated_image = generate_image_from_prompt(prompt=prompt)
-        except Exception as e:
-            # Ghi lại lỗi nếu quá trình sinh ảnh thất bại
-            logger.exception(f"Exception during image generation for task {task.task_id}: {e}")
-            error_message = f"Generation Error: {type(e).__name__}"
-            traceback.print_exc() # In traceback chi tiết để debug
-
-        duration = time.time() - start_time
         image_base64_string = None
+        generation_start_time = time.time()
+        logger.info(f"   ⏳ [italic]Starting image generation...[/] (Task: {task.task_id}) ")
+        try:
+            generated_image = generate_image_from_prompt(prompt=prompt)
+            generation_duration = time.time() - generation_start_time
+            if generated_image:
+                 logger.info(f"   ✅🖼️ [italic]Image generated successfully[/] in {generation_duration:.2f}s. (Task: {task.task_id}) ")
+            else:
+                 logger.warning(f"   ⚠️ [italic]Image generation returned None[/] after {generation_duration:.2f}s. (Task: {task.task_id}) ")
+        except Exception as e:
+            generation_duration = time.time() - generation_start_time
+            logger.exception(f"   💥 [italic red]Exception during image generation[/] after {generation_duration:.2f}s: {e} (Task: {task.task_id}) ")
+            error_message = f"Generation Error: {type(e).__name__}"
+            traceback.print_exc()
 
-        # --- Xử lý kết quả sinh ảnh ---
+        total_duration = time.time() - start_time
+
+        # --- Xử lý kết quả sinh ảnh --- 
         if generated_image:
-            # Nếu có ảnh, chuyển sang base64
-            logger.info(f"Task {task.task_id} - Image generated successfully in {duration:.2f}s.")
+            #logger.info(f"Task {task.task_id} - Image generated successfully in {duration:.2f}s.")
             image_base64_string = image_to_base64(generated_image, format="PNG")
             if not image_base64_string:
-                # Ghi lỗi nếu không chuyển được sang base64
                 logger.error(f"Task {task.task_id} - Failed to convert generated image to base64.")
                 error_message = "Error: Failed to encode image result."
         elif not error_message:
-            # Trường hợp không có ảnh và cũng không có lỗi rõ ràng
             logger.warning(f"Task {task.task_id} - Image generation returned None without specific error.")
             error_message = "Error: Image generation failed silently."
-        # Nếu có error_message từ trước thì giữ nguyên
-
-        # --- Tạo payload kết quả cuối cùng ---
-        result_payload = {
-            "result_id": task.task_id, # Nên dùng task_id để validator dễ map lại
-            # Mô tả chứa ảnh base64 hoặc thông báo lỗi
-            "description": image_base64_string if image_base64_string else error_message,
-            "processing_time": duration,
-            "miner_id": self.on_chain_uid_hex # <<<--- Đảm bảo dùng UID hex thật ở đây
+        
+        # --- Tạo dictionary chứa chi tiết kết quả --- 
+        result_details = {
+            "output_description": image_base64_string if image_base64_string else (error_message or "Error: Unknown processing error"),
+            "processing_time_ms": int(total_duration * 1000),
+            "generation_time_ms": int(generation_duration * 1000), # Add generation time
+            "model_id_used": self.model_id,
+            "error_details": error_message
         }
-        desc_len = len(result_payload.get('description') or '')
-        logger.debug(f"Task {task.task_id} - Prepared result payload (miner_id: {result_payload['miner_id']}, desc_len: {desc_len})")
-        return result_payload
+        logger.debug(f"Task {task.task_id} - Prepared result details dict: {str(result_details)[:150]}...")
+        logger.info(f"✅ [bold]Finished processing task[/] [yellow]{task.task_id}[/yellow] in {total_duration:.2f}s.")
+        return result_details
 
     def handle_task(self, task: TaskModel):
         """
@@ -171,56 +228,61 @@ class Subnet1Miner(BaseMiner):
         Hàm này được gọi (thường trong thread riêng) khi có task mới đến endpoint /receive-task.
         Nó sẽ gọi process_task để thực hiện công việc, sau đó gửi kết quả về validator gốc.
         """
-        # 1. Thực hiện task để lấy dict kết quả
-        result_payload = self.process_task(task)
+        # 1. Thực hiện task để lấy dict kết quả chi tiết
+        # process_task giờ trả về dict chứa chi tiết kết quả (ảnh base64/lỗi)
+        result_details = self.process_task(task)
 
-        # 2. Xác định URL validator gốc để gửi kết quả về
-        # URL này được validator gửi kèm trong đối tượng TaskModel
+        # 2. Tạo đối tượng ResultModel theo định nghĩa mới
+        result_to_send = ResultModel(
+            task_id=task.task_id,
+            miner_uid=self.on_chain_uid_hex, # Đảm bảo dùng UID hex đúng
+            result_data=result_details, # Đặt dict kết quả chi tiết vào đây
+        )
+
+        # 3. Xác định URL validator gốc để gửi kết quả về
         target_validator_endpoint = getattr(task, 'validator_endpoint', None)
+        submit_url = None
 
-        # 3. Kiểm tra và gửi kết quả
         if target_validator_endpoint and isinstance(target_validator_endpoint, str) and target_validator_endpoint.startswith(("http://", "https://")):
-            # Endpoint cụ thể trên validator để nhận kết quả (theo thiết kế API của validator)
             submit_url = target_validator_endpoint.rstrip('/') + "/v1/miner/submit_result"
-
-            # Sử dụng ID dễ đọc cho logging
-            logger.info(f"Miner '{self.miner_id_readable}' sending result for task {task.task_id} to originating validator: {submit_url}")
-            try:
-                # Gửi kết quả bằng HTTP POST request
-                response = requests.post(submit_url, json=result_payload, timeout=15) # Tăng nhẹ timeout
-                response.raise_for_status() # Kiểm tra lỗi HTTP (>= 400)
-
-                # Log phản hồi từ validator
-                try:
-                     logger.info(f"Miner '{self.miner_id_readable}' - Validator response ({response.status_code}) from {submit_url}: {response.json()}")
-                except requests.exceptions.JSONDecodeError:
-                     logger.info(f"Miner '{self.miner_id_readable}' - Validator response ({response.status_code}) from {submit_url}: {response.text[:200]} (Non-JSON)")
-
-            except requests.exceptions.Timeout:
-                 logger.error(f"Miner '{self.miner_id_readable}' - Timeout sending result for task {task.task_id} to {submit_url}")
-            except requests.exceptions.RequestException as e:
-                 logger.error(f"Miner '{self.miner_id_readable}' - Error sending result for task {task.task_id} to {submit_url}: {e}")
-            except Exception as e:
-                 # Bắt các lỗi không mong muốn khác
-                 logger.exception(f"Miner '{self.miner_id_readable}' - Unexpected error sending result for task {task.task_id} to {submit_url}: {e}")
+        elif self.validator_url:
+             submit_url = self.validator_url.rstrip('/') + "/v1/miner/submit_result"
+             logger.warning(f"Miner '{self.miner_id_readable}' - No valid validator_endpoint in task {task.task_id}. Using default fallback: {submit_url}")
         else:
-            # Nếu không có endpoint hợp lệ trong task, ghi log lỗi
-            logger.error(f"Miner '{self.miner_id_readable}' - Could not find valid 'validator_endpoint' in task {task.task_id}. Cannot send result back to originator.")
-            # Cố gắng gửi về URL validator mặc định nếu được cấu hình
-            if self.validator_url:
-                 fallback_submit_url = self.validator_url.rstrip('/') + "/v1/miner/submit_result" # Giả định endpoint fallback
-                 logger.warning(f"Miner '{self.miner_id_readable}' - Attempting to send result to default fallback validator URL: {fallback_submit_url}")
-                 try:
-                      response = requests.post(fallback_submit_url, json=result_payload, timeout=15)
-                      response.raise_for_status()
-                      logger.info(f"Fallback send to {fallback_submit_url} successful (Status: {response.status_code}).")
-                 except Exception as fb_e:
-                      logger.error(f"Fallback send to {fallback_submit_url} also failed: {fb_e}")
-            else:
-                 logger.error("No fallback validator URL configured either. Result not sent.")
+             logger.error(f"Miner '{self.miner_id_readable}' - Cannot send result for task {task.task_id}. No validator_endpoint in task and no fallback URL configured.")
+             return
 
-    # Phương thức run() được kế thừa từ BaseMiner (trong sdk/network/server.py)
-    # Nó sẽ khởi động server FastAPI/uvicorn để lắng nghe task trên host/port đã cấu hình.
-    # def run(self):
-    #     print(f"[Miner '{self.miner_id_readable}'] Starting server at http://{self.host}:{self.port}")
-    #     uvicorn.run(self.app, host=self.host, port=self.port, log_level=logging.INFO) # Có thể cấu hình log level uvicorn
+        # 4. Gửi đối tượng ResultModel đã được serialize
+        if submit_url:
+            logger.info(f"📤 Sending result for task '{task.task_id}' (MinerUID: {result_to_send.miner_uid}) to validator: [link={submit_url}]{submit_url}[/link] ...")
+            logger.debug(f"   Payload: {str(result_to_send.dict())[:150]}...") # Log payload gửi đi
+            try:
+                # Dùng requests (đồng bộ)
+                response = requests.post(submit_url, json=result_to_send.dict(), timeout=30)
+
+                if 200 <= response.status_code < 300:
+                    logger.info(f"✅ Result for task '{task.task_id}' sent successfully (Status: {response.status_code}).")
+                else:
+                    logger.error(
+                        f"❌ Failed to send result for task '{task.task_id}'. Validator responded with status {response.status_code}. Response: {response.text[:200]}..."
+                    )
+            except requests.exceptions.RequestException as req_err:
+                 logger.error(f"❌ Network error sending result for task '{task.task_id}' to {submit_url}: {req_err}")
+            except Exception as send_err:
+                 logger.exception(f"💥 Unexpected error sending result for task '{task.task_id}': {send_err}")
+
+    def run(self):
+        """Khởi chạy Uvicorn server để chạy API."""
+        logger.info(f"▶️ Starting Uvicorn server for Miner '{self.miner_id_readable}' on {self.host}:{self.port}...")
+        try:
+            uvicorn.run(
+                self.app,
+                host=self.host,
+                port=self.port,
+            )
+        except Exception as e:
+             logger.exception(f"💥 Failed to run Uvicorn server: {e}")
+
+    def _encode_image(self, image: Image.Image) -> str:
+        """Mã hóa đối tượng ảnh PIL thành chuỗi base64."""
+        # ... rest of the file

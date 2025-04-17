@@ -4,10 +4,11 @@
 import os
 import sys
 import logging
-import binascii # <<<--- Import binascii
+import binascii
 from pathlib import Path
 from dotenv import load_dotenv
-from typing import Optional, Dict, Any # <<<--- Thêm Dict, Any
+from typing import Optional, Dict, Any
+from rich.logging import RichHandler # <<< Import RichHandler
 
 # --- Thêm đường dẫn gốc của project vào sys.path ---
 project_root = Path(__file__).parent.parent
@@ -16,101 +17,116 @@ sys.path.insert(0, str(project_root))
 
 # --- Import SDK Runner và Lớp Validator của Subnet ---
 try:
-    from sdk.runner import ValidatorRunner # Import lớp Runner từ SDK
-    from subnet1.validator import Subnet1Validator # Import lớp Validator của subnet
-    from sdk.config.settings import settings as sdk_settings # Import settings SDK
-    from pycardano import Network # Import Network
+    from sdk.runner import ValidatorRunner
+    from subnet1.validator import Subnet1Validator
+    from sdk.config.settings import settings as sdk_settings
+    from pycardano import Network
 except ImportError as e:
-    print(f"Error: Could not import required classes. "
-          f"Ensure SDK and subnet modules are accessible. Details: {e}")
+    # Cannot use logger here as it's defined later
+    print(f"❌ FATAL: Import Error: {e}")
     sys.exit(1)
 # ---------------------------------------------------
 
 # --- Tải biến môi trường ---
 env_path = project_root / '.env'
-if env_path.exists():
-    print(f"Loading environment variables from: {env_path}")
-    load_dotenv(dotenv_path=env_path, override=True)
-# --------------------------
 
-# --- Cấu hình Logging ---
+# --- Cấu hình Logging với RichHandler ---
 log_level_str = os.getenv('LOG_LEVEL', 'INFO').upper()
 log_level = getattr(logging, log_level_str, logging.INFO)
-logging.basicConfig(level=log_level, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+
+rich_handler = RichHandler(
+    show_time=True,
+    show_level=True,
+    show_path=False,
+    markup=True,
+    rich_tracebacks=True,
+    log_time_format="[%Y-%m-%d %H:%M:%S]"
+)
+
+logging.basicConfig(
+    level=log_level,
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[rich_handler]
+)
+
 logger = logging.getLogger(__name__)
 # ------------------------
 
+# --- Tải biến môi trường (sau khi logger được cấu hình) ---
+if env_path.exists():
+    logger.info(f"📄 Loading environment variables from: {env_path}")
+    load_dotenv(dotenv_path=env_path, override=True)
+else:
+    logger.warning(f"📄 Environment file (.env) not found at {env_path}.")
+# --------------------------
+
 def main():
     """Hàm chính để cấu hình và chạy ValidatorRunner cho Validator 2."""
-    logger.info("--- Configuring Validator Runner for Subnet 1 (Instance 2) ---")
+    logger.info("🚀 --- Starting Validator Configuration ([bold yellow]Instance 2[/]) --- 🚀")
 
     try:
-        # --- Đọc ID validator dạng chuỗi từ .env ---
+        # --- Đọc ID validator 2 dạng chuỗi từ .env --- 
         validator_readable_id = os.getenv("SUBNET1_VALIDATOR_UID2")
         if not validator_readable_id:
-            logger.error("FATAL: SUBNET1_VALIDATOR_UID2 (readable validator ID) is not set in .env.")
+            logger.critical("❌ FATAL: SUBNET1_VALIDATOR_UID2 is not set in .env.")
             sys.exit(1)
+        logger.info(f"🆔 Read Validator ID (Instance 2) from .env: '{validator_readable_id}'")
 
-        # --- Tính toán UID hex từ ID dạng chuỗi ---
+        # --- Tính toán UID hex từ ID dạng chuỗi --- 
         try:
             expected_uid_bytes = validator_readable_id.encode('utf-8')
             expected_uid_hex = expected_uid_bytes.hex()
-            logger.info(f"Derived On-Chain UID Hex from SUBNET1_VALIDATOR_UID2 ('{validator_readable_id}'): {expected_uid_hex}")
+            logger.info(f"🔑 Derived On-Chain UID (Hex): {expected_uid_hex}")
         except Exception as e:
-            logger.error(f"FATAL: Could not encode SUBNET1_VALIDATOR_UID2 ('{validator_readable_id}') to derive UID: {e}")
+            logger.critical(f"❌ FATAL: Could not encode SUBNET1_VALIDATOR_UID2 ('{validator_readable_id}') to derive UID: {e}")
             sys.exit(1)
         # -----------------------------------------
 
-        # --- Tập hợp cấu hình cho ValidatorRunner ---
+        # --- Tập hợp cấu hình cho ValidatorRunner (Instance 2) --- 
+        logger.info("⚙️ Gathering configuration for ValidatorRunner (Instance 2)...")
         runner_config: Dict[str, Any] = {
-            "validator_class": Subnet1Validator, # Lớp validator cụ thể của subnet
-            "host": os.getenv("SUBNET1_API_HOST2", "127.0.0.1"),
-            "port": int(os.getenv("SUBNET1_API_PORT2", 8002)),
+            "validator_class": Subnet1Validator,
+            # Sử dụng các biến môi trường có hậu tố 2
+            "host": os.getenv("SUBNET1_API_HOST2") or getattr(sdk_settings, 'DEFAULT_API_HOST', "127.0.0.1"),
+            "port": int(os.getenv("SUBNET1_API_PORT2") or getattr(sdk_settings, 'DEFAULT_API_PORT', 8002)), # Port mặc định khác
             "log_level": log_level_str.lower(),
-
-            # --- Cấu hình cần để khởi tạo validator bên trong Runner ---
-            # >>> SỬA ĐỔI: Sử dụng UID hex đã tính toán <<<
             "validator_uid": expected_uid_hex,
-            # >>> KẾT THÚC SỬA ĐỔI <<<
             "validator_address": os.getenv("SUBNET1_VALIDATOR_ADDRESS2"),
             "validator_api_endpoint": os.getenv("SUBNET1_VALIDATOR_API_ENDPOINT2"),
-            "hotkey_base_dir": os.getenv("HOTKEY_BASE_DIR2", getattr(sdk_settings, 'HOTKEY_BASE_DIR', 'moderntensor')),
-            "coldkey_name": os.getenv("SUBNET1_COLDKEY_NAME2", "validator2"), # Tên coldkey riêng cho validator 2
-            "hotkey_name": os.getenv("SUBNET1_HOTKEY_NAME2"), # Tên hotkey riêng cho validator 2
-            "password": os.getenv("SUBNET1_HOTKEY_PASSWORD2"), # Mật khẩu riêng cho validator 2
-            "blockfrost_project_id": os.getenv("BLOCKFROST_PROJECT_ID", getattr(sdk_settings, 'BLOCKFROST_PROJECT_ID', None)),
-            "network": Network.MAINNET if os.getenv("CARDANO_NETWORK", "TESTNET").upper() == "MAINNET" else Network.TESTNET,
-            # Thêm các cấu hình khác nếu Subnet1Validator.__init__ cần
+            "hotkey_base_dir": os.getenv("HOTKEY_BASE_DIR2") or getattr(sdk_settings, 'HOTKEY_BASE_DIR', 'moderntensor'), # Có thể base dir khác?
+            "coldkey_name": os.getenv("SUBNET1_COLDKEY_NAME2") or getattr(sdk_settings, 'DEFAULT_COLDKEY_NAME', "validator2"), # Coldkey khác
+            "hotkey_name": os.getenv("SUBNET1_HOTKEY_NAME2"),
+            "password": os.getenv("SUBNET1_HOTKEY_PASSWORD2"),
+            "blockfrost_project_id": os.getenv("BLOCKFROST_PROJECT_ID") or getattr(sdk_settings, 'BLOCKFROST_PROJECT_ID', None),
+            "network": Network.MAINNET if (os.getenv("CARDANO_NETWORK") or getattr(sdk_settings, 'CARDANO_NETWORK', 'TESTNET')).upper() == "MAINNET" else Network.TESTNET,
         }
+        logger.debug(f"⚙️ Runner Config (Instance 2) assembled: {runner_config}")
 
-        # --- Kiểm tra các giá trị config bắt buộc ---
-        # Bây giờ validator_uid được đảm bảo tồn tại nếu đọc được ID readable
+        # --- Kiểm tra các giá trị config bắt buộc --- 
         required_keys = [
             'validator_address', 'validator_api_endpoint',
-            'coldkey_name', 'hotkey_name', 'password', 'blockfrost_project_id'
+            'coldkey_name', 'hotkey_name', 'password', 'blockfrost_project_id',
+            'validator_uid'
         ]
-        # Kiểm tra các key còn lại
-        if not all(runner_config.get(k) for k in required_keys):
-            missing = [k for k in required_keys if not runner_config.get(k)]
-            # Thêm validator_uid nếu nó không được tính toán vì lý do nào đó (dù khó xảy ra)
-            if not runner_config.get('validator_uid'): missing.append('validator_uid (derived)')
-            raise ValueError(f"Missing required configurations in .env for Validator 2: {missing}")
+        missing = [k for k in required_keys if not runner_config.get(k)]
+        if missing:
+            logger.critical(f"❌ FATAL: Missing required configurations in .env for Validator 2: {missing}.")
+            sys.exit(1)
 
-        logger.info("Configuration loaded. Initializing ValidatorRunner...")
-        # Khởi tạo Runner với config đã chuẩn bị
+        logger.info("✅ Configuration validated. Initializing ValidatorRunner (Instance 2)...")
         runner = ValidatorRunner(runner_config)
 
-        logger.info(f"Starting validator node '{validator_readable_id}' (UID: {expected_uid_hex}) and API server...")
-        # Chạy server (blocking call)
+        logger.info(f"🚀 Starting Validator Node '{validator_readable_id}' ([bold yellow]Instance 2[/], UID: {expected_uid_hex}) and API server...")
         runner.run()
 
     except ValueError as e:
-         logger.error(f"Configuration Error: {e}")
-    except ImportError:
-         logger.error("Import Error: Could not find necessary modules. Is the SDK installed correctly?")
+         logger.critical(f"❌ Configuration Error (Instance 2): {e}")
+         sys.exit(1)
     except Exception as e:
-        logger.exception(f"An unexpected error occurred: {e}")
+        logger.exception(f"💥 An unexpected critical error occurred (Instance 2): {e}")
+        sys.exit(1)
 
-# --- Điểm thực thi chính ---
+# --- Điểm thực thi chính --- 
 if __name__ == "__main__":
     main()

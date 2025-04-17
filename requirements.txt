@@ -5,3 +5,11 @@ transformers
 torch
 accelerate
 sentencepiece
+fastapi
+uvicorn
+python-dotenv
+pycardano
+pynacl
+cryptography
+httpx
+rich

@@ -9,7 +9,8 @@ import asyncio
 import hashlib
 from pathlib import Path
 from dotenv import load_dotenv
-from typing import Optional, Tuple, List, Type, Dict # Thêm Dict
+from typing import Optional, Tuple, List, Type, Dict, Any, cast
+from rich.logging import RichHandler
 
 from pycardano import (
     TransactionBuilder,
@@ -22,7 +23,9 @@ from pycardano import (
     TransactionId,
     ExtendedSigningKey,
     UTxO,
-    Value, # Thêm Value
+    Value,
+    Asset,
+    MultiAsset
 )
 
 # --- Thêm đường dẫn gốc của project vào sys.path ---
@@ -32,34 +35,52 @@ sys.path.insert(0, str(project_root))
 
 # Import các thành phần cần thiết từ SDK Moderntensor
 try:
-    from sdk.metagraph.create_utxo import find_suitable_ada_input # Chỉ cần hàm tìm input
-    from sdk.metagraph.metagraph_datum import MinerDatum, ValidatorDatum, STATUS_ACTIVE
+    from sdk.metagraph.create_utxo import find_suitable_ada_input
+    from sdk.metagraph.metagraph_datum import MinerDatum, ValidatorDatum, STATUS_ACTIVE, METAGRAPH_NFT_POLICY_ID_PLACEHOLDER, METAGRAPH_NFT_ASSET_NAME_PLACEHOLDER, MetagraphDatum, MinerInfo, ValidatorInfo
     from sdk.metagraph.hash.hash_datum import hash_data
     from sdk.service.context import get_chain_context
     from sdk.keymanager.decryption_utils import decode_hotkey_skey
     from sdk.smartcontract.validator import read_validator
-    from sdk.config.settings import settings as sdk_settings # Import settings của SDK
+    from sdk.config.settings import settings as sdk_settings
+    from sdk.service.blockfrost_service import BlockFrostService
+    from sdk.service.transaction_service import TransactionService
 except ImportError as e:
-    print(f"Error: Could not import required components from the 'moderntensor' SDK. "
-          f"Is the SDK installed correctly? Details: {e}")
+    print(f"❌ FATAL: Import Error in prepare_testnet_datums.py: {e}")
     sys.exit(1)
 
 # --- Tải biến môi trường ---
 env_path = project_root / '.env'
-if env_path.exists():
-    print(f"Loading environment variables from: {env_path}")
-    load_dotenv(dotenv_path=env_path, override=True)
-else:
-    print(f"Warning: .env file not found at {env_path}. Using default values or existing environment variables.")
-# -----------------------------
 
-# --- Cấu hình Logging ---
+# --- Cấu hình Logging với RichHandler ---
 log_level_str = os.getenv('LOG_LEVEL', 'INFO').upper()
 log_level = getattr(logging, log_level_str, logging.INFO)
-logging.basicConfig(level=log_level, format='%(asctime)s [%(levelname)s] %(name)s: %(message)s')
+
+rich_handler = RichHandler(
+    show_time=True,
+    show_level=True,
+    show_path=False,
+    markup=True,
+    rich_tracebacks=True,
+    log_time_format="[%Y-%m-%d %H:%M:%S]"
+)
+
+logging.basicConfig(
+    level=log_level,
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[rich_handler]
+)
+
 logger = logging.getLogger(__name__)
-DEFAULT_MIN_UTXO_FETCH_ADA = 5_000_000 # Lovelace tối thiểu cho UTXO funding
 # ------------------------
+
+# --- Tải biến môi trường (sau khi logger được cấu hình) ---
+if env_path.exists():
+    logger.info(f"📄 Loading environment variables from: {env_path}")
+    load_dotenv(dotenv_path=env_path, override=True)
+else:
+    logger.warning(f"📄 Environment file (.env) not found at {env_path}.")
+# --------------------------
 
 # --- Lấy thông tin Miner và Validator từ .env ---
 # Sử dụng ID dạng String để tạo Datum, UID hex sẽ được suy ra khi chạy node
@@ -107,254 +128,210 @@ if missing_vars:
     sys.exit(1)
 # --------------------------------------------------
 
-# --- Hàm tạo Datum Helper ---
-def create_and_log_datum(
-    datum_type: Type[PlutusData], # <<<--- Sửa type hint
-    uid_str: str,
-    wallet_addr: str,
-    api_endpoint: Optional[str], # <<<--- Cho phép None
-    divisor: float,
-    subnet_id: int = 1,
-    initial_perf: float = 0.5,
-    initial_trust: float = 0.5,
-    initial_stake: int = 0
-) -> Tuple[PlutusData, str]: # <<<--- Sửa kiểu trả về
-    """Tạo đối tượng Datum (Miner hoặc Validator) và in ra UID hex tương ứng."""
-    # >>> Quan trọng: Tính UID bytes và hex từ uid_str <<<
+# === Constants (Placeholders - Replace with actual values) ===
+# These should ideally come from a config file or constants module
+# Replace with your ACTUAL deployed script address
+METAGRAPH_SCRIPT_ADDRESS_BECH32 = os.getenv("METAGRAPH_SCRIPT_ADDRESS") or "addr_test1w...your_script_address..."
+# Replace with your ACTUAL Metagraph NFT Policy ID and Asset Name (hex)
+METAGRAPH_NFT_POLICY_ID = os.getenv("METAGRAPH_NFT_POLICY_ID") or METAGRAPH_NFT_POLICY_ID_PLACEHOLDER
+METAGRAPH_NFT_ASSET_NAME = os.getenv("METAGRAPH_NFT_ASSET_NAME") or METAGRAPH_NFT_ASSET_NAME_PLACEHOLDER
+
+# === Helper Functions ===
+
+def load_funding_keys(
+    base_dir: str,
+    coldkey_name: str,
+    hotkey_name: str,
+    password: str
+) -> Tuple[ExtendedSigningKey, Address]:
+    """Loads funding keys and derives the address."""
+    logger.info(f"🔑 Loading funding keys (Cold: '{coldkey_name}', Hot: '{hotkey_name}')...")
     try:
-        uid_bytes = uid_str.encode('utf-8')
-        uid_hex = uid_bytes.hex()
+        payment_esk, _ = decode_hotkey_skey(base_dir, coldkey_name, hotkey_name, password)
+        payment_vk = payment_esk.to_verification_key()
+        funding_address = Address(payment_vk.hash(), network=get_network())
+        logger.info(f"✅ Funding keys loaded. Address: [cyan]{funding_address}[/]")
+        return payment_esk, funding_address
     except Exception as e:
-        logger.error(f"Failed to encode UID string '{uid_str}': {e}")
-        raise ValueError(f"Invalid UID string: {uid_str}") from e
+        logger.exception(f"💥 Failed to load funding keys: {e}")
+        raise
 
-    logger.info(f"Preparing Datum for String UID: '{uid_str}' -> HEX UID: {uid_hex}")
+def get_network() -> Network:
+    """Determines the Cardano network from environment or SDK settings."""
+    network_str = (os.getenv("CARDANO_NETWORK") or getattr(sdk_settings, 'CARDANO_NETWORK', 'TESTNET')).upper()
+    return Network.MAINNET if network_str == "MAINNET" else Network.TESTNET
 
-    # Hash địa chỉ ví (phải là string hợp lệ)
+def create_metagraph_datum(
+    validators: List[ValidatorInfo],
+    miners: List[MinerInfo],
+    current_cycle: int = 0 # Initial cycle
+) -> MetagraphDatum:
+    """Creates the MetagraphDatum object."""
+    logger.info(f"🧩 Creating Metagraph Datum (Cycle: {current_cycle})...")
+    datum = MetagraphDatum(
+        validators=validators,
+        miners=miners,
+        last_update_cycle=current_cycle
+    )
+    logger.info(f"✅ Metagraph Datum created with {len(validators)} validators and {len(miners)} miners.")
+    return datum
+
+def build_and_submit_transaction(
+    tx_service: TransactionService,
+    funding_address: Address,
+    funding_skey: ExtendedSigningKey,
+    script_address: Address,
+    metagraph_datum: MetagraphDatum,
+    nft_policy_id: str,
+    nft_asset_name: str,
+    min_utxo_lovelace: int
+) -> str:
+    """Builds, signs, and submits the transaction to create the initial datum UTXO."""
+    logger.info("🏗️ Building transaction to create initial Metagraph UTXO...")
     try:
-        wallet_hash_bytes = hash_data(wallet_addr)
+        # 1. Define the output to the script address
+        nft_asset = Asset.from_primitive({bytes.fromhex(nft_policy_id): {bytes.fromhex(nft_asset_name): 1}})
+        output_value = Value(min_utxo_lovelace, MultiAsset({nft_asset.policy: nft_asset.assets}))
+        script_output = TransactionOutput(script_address, output_value, datum=metagraph_datum, datum_hash=metagraph_datum.hash())
+        logger.info(f"   ➡️ Output to Script: {script_address}")
+        logger.info(f"   💰 Value: {min_utxo_lovelace} Lovelace + 1 Metagraph NFT")
+        logger.info(f"   📄 Datum Hash: {metagraph_datum.hash().hex()}")
+
+        # 2. Build the transaction (TxService handles finding inputs, change, fees)
+        tx_builder = tx_service.create_transaction_builder(funding_address)
+        tx_builder.add_output(script_output)
+
+        # Explicitly add the funding key as a required signer (might be handled by TxService)
+        # tx_builder.required_signers = [funding_skey.to_verification_key().hash()]
+
+        logger.info("✍️ Signing transaction...")
+        signed_tx = tx_service.sign_transaction(tx_builder, [funding_skey])
+
+        logger.info("📤 Submitting transaction...")
+        tx_hash = tx_service.submit_transaction(signed_tx)
+        logger.info(f"✅ Transaction submitted successfully! Tx Hash: [bold green]{tx_hash}[/]")
+        logger.info(f"   View on Cardanoscan ({get_network().name}): [link=https://{get_network().name.lower()}.cardanoscan.io/transaction/{tx_hash}]https://{get_network().name.lower()}.cardanoscan.io/transaction/{tx_hash}[/link]")
+        return tx_hash
+
     except Exception as e:
-        logger.error(f"Failed to hash wallet address '{wallet_addr}': {e}")
-        raise ValueError(f"Invalid wallet address: {wallet_addr}") from e
+        logger.exception(f"💥 Failed during transaction build/sign/submit: {e}")
+        raise
 
-    # Encode API endpoint (nếu có)
-    api_bytes: Optional[bytes] = None # <<<--- Khởi tạo là None
-    if api_endpoint:
-        try:
-            api_bytes = api_endpoint.encode('utf-8')
-        except Exception as e:
-            logger.warning(f"Could not encode API endpoint '{api_endpoint}': {e}. Storing as empty bytes.")
-            api_bytes = b'' # Hoặc None tùy theo định nghĩa datum
-    # Nếu api_endpoint là None hoặc rỗng, api_bytes sẽ là None hoặc b''
+# === Main Execution Logic ===
 
-    # Kiểm tra divisor
-    if divisor <= 0:
-         raise ValueError("DATUM_INT_DIVISOR must be positive.")
+def main():
+    """Main function to prepare the initial Metagraph Datum UTXO."""
+    logger.info("✨ --- Starting Metagraph Datum Preparation Script --- ✨")
 
-    # Các tham số chung cho Datum
-    common_args = {
-        "uid": uid_bytes,
-        "subnet_uid": subnet_id,
-        "stake": initial_stake,
-        "scaled_last_performance": int(initial_perf * divisor),
-        "scaled_trust_score": int(initial_trust * divisor),
-        "accumulated_rewards": 0,
-        "last_update_slot": 0,
-        "performance_history_hash": hash_data([]), # Hash của list rỗng
-        "wallet_addr_hash": wallet_hash_bytes,
-        "status": STATUS_ACTIVE,
-        "registration_slot": 0,
-        "api_endpoint": api_bytes if api_bytes is not None else b'', # Đảm bảo là bytes, không phải None
-    }
-
-    # Tạo đối tượng Datum cụ thể
-    datum_instance: PlutusData
-    if datum_type is MinerDatum:
-        datum_instance = MinerDatum(**common_args) # type: ignore
-    elif datum_type is ValidatorDatum:
-        datum_instance = ValidatorDatum(**common_args) # type: ignore
-    else:
-        raise TypeError(f"Unsupported datum type: {datum_type}")
-
-    logger.info(f" - {datum_type.__name__} object created.")
-    return datum_instance, uid_hex
-
-# --- Hàm Chính Async ---
-async def prepare_datums():
-    logger.info("--- Starting Testnet Datum Preparation ---")
-
-    # 1. Load Khóa Funding
-    funding_payment_esk: Optional[ExtendedSigningKey] = None
-    funding_stake_esk: Optional[ExtendedSigningKey] = None
+    # --- Load Configuration --- 
+    logger.info("⚙️ Loading configuration from .env...")
     try:
-        logger.info(f"Loading funding keys: Coldkey='{FUNDING_COLDKEY_NAME}', Hotkey='{FUNDING_HOTKEY_NAME}'")
-        funding_payment_esk, funding_stake_esk = decode_hotkey_skey(
-            base_dir=HOTKEY_BASE_DIR,
-            coldkey_name=FUNDING_COLDKEY_NAME,
-            hotkey_name=FUNDING_HOTKEY_NAME,
-            password=FUNDING_PASSWORD # type: ignore
+        network = get_network()
+        blockfrost_project_id = os.getenv("BLOCKFROST_PROJECT_ID") or getattr(sdk_settings, 'BLOCKFROST_PROJECT_ID', None)
+        hotkey_base_dir = os.getenv("HOTKEY_BASE_DIR") or getattr(sdk_settings, 'HOTKEY_BASE_DIR', 'moderntensor')
+        funding_coldkey = os.getenv("FUNDING_COLDKEY_NAME")
+        funding_hotkey = os.getenv("FUNDING_HOTKEY_NAME")
+        funding_password = os.getenv("FUNDING_PASSWORD")
+
+        if not all([blockfrost_project_id, funding_coldkey, funding_hotkey, funding_password]):
+            missing = [k for k,v in {"BLOCKFROST_PROJECT_ID": blockfrost_project_id,
+                                      "FUNDING_COLDKEY_NAME": funding_coldkey,
+                                      "FUNDING_HOTKEY_NAME": funding_hotkey,
+                                      "FUNDING_PASSWORD": funding_password}.items() if not v]
+            logger.critical(f"❌ FATAL: Missing required funding configurations in .env: {missing}")
+            sys.exit(1)
+
+        script_address = Address.from_primitive(METAGRAPH_SCRIPT_ADDRESS_BECH32)
+        logger.info(f"🎯 Target Script Address: [magenta]{script_address}[/]")
+        logger.info(f"    NFT Policy ID: [yellow]{METAGRAPH_NFT_POLICY_ID}[/]")
+        logger.info(f"    NFT Asset Name: [yellow]{METAGRAPH_NFT_ASSET_NAME}[/]")
+
+    except Exception as cfg_err:
+        logger.exception(f"💥 Error loading configuration: {cfg_err}")
+        sys.exit(1)
+
+    # --- Initialize Services --- 
+    try:
+        logger.info(f"🔗 Initializing BlockFrostService (Network: {network.name})...")
+        bf_service = BlockFrostService(project_id=blockfrost_project_id, network=network)
+        logger.info("🔗 Initializing TransactionService...")
+        tx_service = TransactionService(blockfrost_service=bf_service)
+        min_utxo = bf_service.fetch_protocol_parameters()["minUTxOValue"]
+        logger.info(f"💰 Minimum UTXO Value (Lovelace): {min_utxo}")
+    except Exception as svc_err:
+        logger.exception(f"💥 Error initializing services: {svc_err}")
+        sys.exit(1)
+
+    # --- Load Funding Wallet --- 
+    try:
+        funding_skey, funding_address = load_funding_keys(
+            hotkey_base_dir, funding_coldkey, funding_hotkey, funding_password # type: ignore
         )
-        if not funding_payment_esk: raise ValueError("Failed to decode funding payment key.")
-        logger.info("Funding keys loaded.")
-    except FileNotFoundError as e:
-        logger.error(f"FATAL: Key files not found for funding wallet ({FUNDING_COLDKEY_NAME}/{FUNDING_HOTKEY_NAME}): {e}")
-        sys.exit(1)
-    except Exception as e:
-        logger.exception(f"FATAL: Failed to load/decode funding keys: {e}")
-        sys.exit(1)
+        # Check balance (optional but recommended)
+        balance = bf_service.get_address_balance(str(funding_address))
+        logger.info(f"💰 Funding Wallet Balance: {balance / 1_000_000} ADA")
+        if balance < min_utxo * 2: # Need minUTXO + fees + buffer
+             logger.warning(f"⚠️ Funding wallet balance might be too low! Required ~ {min_utxo * 2 / 1_000_000} ADA.")
 
-    # 2. Lấy Context và Script Hash
-    context: Optional[BlockFrostChainContext] = None
-    script_hash: Optional[ScriptHash] = None
-    network = Network.TESTNET # Mặc định hoặc đọc từ settings
-    try:
-        network_str = getattr(sdk_settings, 'CARDANO_NETWORK', 'TESTNET').upper()
-        network = Network.MAINNET if network_str == "MAINNET" else Network.TESTNET
-        logger.info(f"Initializing Cardano context for {network.name}...")
-        context = get_chain_context(method="blockfrost") # Hàm này nên tự đọc network từ settings
-        if not context: raise RuntimeError("Failed to initialize Cardano context.")
-        if context.network != network: # Kiểm tra lại network của context
-             logger.warning(f"Context network ({context.network.name}) differs from settings network ({network.name}). Using context network.")
-             network = context.network
-
-        logger.info(f"Context initialized for {network.name}.")
-
-        logger.info("Loading validator script hash...")
-        validator_details = read_validator()
-        if not validator_details or "script_hash" not in validator_details:
-            raise RuntimeError("Could not load validator script hash.")
-        script_hash = validator_details["script_hash"]
-        logger.info(f"Script Hash: {script_hash}")
-    except Exception as e:
-        logger.exception(f"FATAL: Error during context/script initialization: {e}")
+    except Exception as fund_err:
+        logger.exception(f"💥 Error loading funding wallet: {fund_err}")
         sys.exit(1)
 
-    # 3. Tạo các Đối tượng Datum sử dụng hàm helper
-    logger.info("Preparing Miner and Validator Datums...")
-    datums_to_create: List[PlutusData] = [] # List để chứa tất cả datum cần tạo
-    hex_uids_generated : Dict[str, str] = {} # Lưu UID hex để log
+    # --- Define Initial Validators and Miners --- 
+    # Load these from .env or a separate config file
+    logger.info("👥 Defining initial validator and miner list...")
+    validators = []
+    miners = []
+    # Example: Load Validator 1 info
     try:
-        divisor = sdk_settings.METAGRAPH_DATUM_INT_DIVISOR
+        val1_uid = os.getenv("SUBNET1_VALIDATOR_UID")
+        val1_addr = os.getenv("SUBNET1_VALIDATOR_ADDRESS")
+        val1_api = os.getenv("SUBNET1_VALIDATOR_API_ENDPOINT")
+        if val1_uid and val1_addr and val1_api:
+            validators.append(ValidatorInfo(uid=val1_uid.encode().hex(), address=val1_addr, api_endpoint=val1_api, status=STATUS_ACTIVE))
+            logger.info(f"  ➕ Added Validator 1: UID={val1_uid.encode().hex()[:10]}... Addr={val1_addr[:15]}... API={val1_api}")
+        else: logger.warning("⚠️ Validator 1 info missing in .env, skipping.")
+        # Add similar logic for Validator 2, 3...
+        # ... (Load Val 2, Val 3)
 
-        # --- Tạo Miner Datums ---
-        miner_datum_1, miner_1_hex = create_and_log_datum(MinerDatum, MINER_UID_STR, MINER_WALLET_ADDR, MINER_API_ENDPOINT, divisor) # type: ignore
-        datums_to_create.append(miner_datum_1)
-        hex_uids_generated[MINER_UID_STR] = miner_1_hex # type: ignore
+        # Example: Load Miner 1 info
+        miner1_uid = os.getenv("SUBNET1_MINER_ID")
+        miner1_addr = os.getenv("SUBNET1_MINER_WALLET_ADDR")
+        miner1_api = os.getenv("SUBNET1_MINER_API_ENDPOINT")
+        if miner1_uid and miner1_addr and miner1_api:
+             miners.append(MinerInfo(uid=miner1_uid.encode().hex(), address=miner1_addr, api_endpoint=miner1_api, status=STATUS_ACTIVE))
+             logger.info(f"  ➕ Added Miner 1: UID={miner1_uid.encode().hex()[:10]}... Addr={miner1_addr[:15]}... API={miner1_api}")
+        else: logger.warning("⚠️ Miner 1 info missing in .env, skipping.")
+        # Add similar logic for Miner 2...
+        # ... (Load Miner 2)
 
-        miner_datum_2, miner_2_hex = create_and_log_datum(MinerDatum, MINER_UID_STR2, MINER_WALLET_ADDR2, MINER_API_ENDPOINT2, divisor) # type: ignore
-        datums_to_create.append(miner_datum_2)
-        hex_uids_generated[MINER_UID_STR2] = miner_2_hex # type: ignore
+        if not validators and not miners:
+            logger.critical("❌ FATAL: No validators or miners could be loaded from .env configuration. Cannot create datum.")
+            sys.exit(1)
 
-        # --- Tạo Validator Datums ---
-        validator_datum_1, validator_1_hex = create_and_log_datum(ValidatorDatum, VALIDATOR_UID_STR, VALIDATOR_WALLET_ADDR, VALIDATOR_API_ENDPOINT, divisor, initial_perf=0.8, initial_trust=0.8) # type: ignore
-        datums_to_create.append(validator_datum_1)
-        hex_uids_generated[VALIDATOR_UID_STR] = validator_1_hex # type: ignore
+    except Exception as list_err:
+         logger.exception(f"💥 Error loading validator/miner lists: {list_err}")
+         sys.exit(1)
 
-        validator_datum_2, validator_2_hex = create_and_log_datum(ValidatorDatum, VALIDATOR_UID_STR2, VALIDATOR_WALLET_ADDR2, VALIDATOR_API_ENDPOINT2, divisor, initial_perf=0.8, initial_trust=0.8) # type: ignore
-        datums_to_create.append(validator_datum_2)
-        hex_uids_generated[VALIDATOR_UID_STR2] = validator_2_hex # type: ignore
-
-        validator_datum_3, validator_3_hex = create_and_log_datum(ValidatorDatum, VALIDATOR_UID_STR3, VALIDATOR_WALLET_ADDR3, VALIDATOR_API_ENDPOINT3, divisor, initial_perf=0.8, initial_trust=0.8) # type: ignore
-        datums_to_create.append(validator_datum_3)
-        hex_uids_generated[VALIDATOR_UID_STR3] = validator_3_hex # type: ignore
-
-        # >>> Cập nhật Thông báo Quan trọng <<<
-        logger.warning("-" * 60)
-        logger.warning("IMPORTANT: Ensure the STRING UIDs in your .env file")
-        logger.warning("(e.g., SUBNET1_VALIDATOR_UID, SUBNET1_MINER_ID) exactly match")
-        logger.warning("the strings used to prepare these datums. The system will")
-        logger.warning("derive the necessary HEX UIDs automatically during runtime.")
-        logger.warning("Corresponding HEX UIDs for reference:")
-        for str_uid, hex_uid in hex_uids_generated.items():
-             logger.warning(f" - String '{str_uid}' -> HEX {hex_uid}")
-        logger.warning("-" * 60)
-
-    except Exception as e:
-        logger.exception(f"Failed to create Datum objects: {e}")
-        return
-
-    # 4. Xác định địa chỉ ví funding và địa chỉ contract
+    # --- Create Datum & Build/Submit TX --- 
     try:
-        pay_xvk = funding_payment_esk.to_verification_key()
-        owner_address: Address
-        if funding_stake_esk:
-            stk_xvk = funding_stake_esk.to_verification_key()
-            owner_address = Address(pay_xvk.hash(), stk_xvk.hash(), network=network) # type: ignore
-        else:
-            owner_address = Address(pay_xvk.hash(), network=network) # type: ignore
-        contract_address = Address(payment_part=script_hash, network=network) # type: ignore
-        logger.info(f"Funding Address: {owner_address}")
-        logger.info(f"Contract Address: {contract_address}")
-    except Exception as e:
-        logger.exception(f"Failed to derive addresses: {e}")
-        return
-
-    # 5. Tìm UTXO Input Phù Hợp từ ví Funding
-    num_outputs = len(datums_to_create)
-    if num_outputs == 0:
-        logger.warning("No datums were prepared. Exiting.")
-        return
-    # Ước tính ADA cần thiết: mỗi output cần DATUM_LOCK_AMOUNT, cộng thêm phí giao dịch
-    # Phí ước tính thận trọng: ~0.2 ADA mỗi output + 0.2 ADA cho input/change
-    estimated_fee = (num_outputs + 2) * 200_000
-    total_output_amount = DATUM_LOCK_AMOUNT * num_outputs
-    min_input_ada = total_output_amount + estimated_fee + 1_000_000 # Thêm 1 ADA buffer
-    logger.info(f"Need input UTXO with >= {min_input_ada / 1_000_000:.6f} ADA for {num_outputs} outputs + fees.")
-
-    selected_input_utxo = find_suitable_ada_input(context, str(owner_address), min_input_ada)
-
-    if not selected_input_utxo:
-        logger.error(f"Could not find a suitable ADA-only UTxO with at least {min_input_ada / 1_000_000:.6f} ADA at {owner_address}.")
-        logger.error("Ensure the funding wallet (kickoff/hk1 by default) has enough ADA in a single, simple UTxO on Testnet.")
-        # Cung cấp hướng dẫn thêm tADA nếu trên Testnet
-        if network == Network.TESTNET:
-            logger.info("Request tADA from a faucet: https://docs.cardano.org/cardano-testnets/tools/faucet")
-        return
-
-    logger.info(f"Selected input UTxO: {selected_input_utxo.input} ({selected_input_utxo.output.amount.coin / 1_000_000:.6f} ADA)")
-
-    # 6. Xây dựng và Gửi Giao dịch DUY NHẤT
-    try:
-        builder = TransactionBuilder(context=context)
-        builder.add_input(selected_input_utxo) # Thêm input tường minh
-
-        # Thêm output cho từng Datum đã tạo
-        for datum_obj in datums_to_create:
-            builder.add_output(
-                TransactionOutput(
-                    address=contract_address,
-                    amount=Value(coin=DATUM_LOCK_AMOUNT), # <<<--- Đảm bảo Amount là Value
-                    datum=datum_obj
-                )
-            )
-            logger.debug(f"Added output with datum: {datum_obj}")
-
-        # Build, Sign, Submit (chỉ cần khóa payment của funding wallet)
-        logger.info("Building and signing the combined transaction...")
-        signed_tx = builder.build_and_sign(
-            signing_keys=[funding_payment_esk], # Chỉ cần khóa payment
-            change_address=owner_address
+        metagraph_datum = create_metagraph_datum(validators, miners)
+        build_and_submit_transaction(
+            tx_service,
+            funding_address,
+            funding_skey,
+            script_address,
+            metagraph_datum,
+            METAGRAPH_NFT_POLICY_ID,
+            METAGRAPH_NFT_ASSET_NAME,
+            min_utxo
         )
+        logger.info("✅🏁 Metagraph datum preparation script finished successfully! 🏁✅")
 
-        logger.info(f"Submitting combined transaction (Estimated Fee: {signed_tx.transaction_body.fee / 1_000_000:.6f} ADA)...")
-        # Submit giao dịch - cần await nếu context.submit_tx là async
-        # tx_id : TransactionId = await context.submit_tx(signed_tx.to_cbor()) # Nếu async
-        tx_id : TransactionId = await asyncio.to_thread(context.submit_tx, signed_tx.to_cbor()) # type: ignore # Nếu sync
-        tx_id_str = str(tx_id)
-        logger.info(f"Combined transaction submitted successfully: TxID: {tx_id_str}")
-        scan_url = f"https://preprod.cardanoscan.io/transaction/{tx_id_str}" if network == Network.TESTNET else f"https://cardanoscan.io/transaction/{tx_id_str}"
-        logger.info(f"  -> Check on Cardanoscan ({network.name}): {scan_url}")
+    except Exception as final_err:
+        logger.exception(f"💥 Final error during datum creation or transaction submission: {final_err}")
+        sys.exit(1)
 
-    except Exception as e:
-        logger.exception(f"Failed to build or submit the combined transaction: {e}")
-
-    logger.info("--- Datum Preparation Script Finished ---")
-
-# --- Chạy hàm chính ---
+# --- Run Main --- 
 if __name__ == "__main__":
-    try:
-        asyncio.run(prepare_datums())
-    except KeyboardInterrupt:
-        logger.info("Script interrupted by user.")
-    except Exception as e:
-        logger.exception(f"Failed to run prepare_datums: {e}")
+    main()

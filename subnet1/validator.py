@@ -7,11 +7,14 @@ from typing import Any, Dict, List, Optional
 from collections import defaultdict
 import os
 import binascii
+import uuid
 
 # Import từ SDK Moderntensor (đã cài đặt)
 try:
-    from sdk.consensus.node import ValidatorNode
-    from sdk.core.datatypes import TaskAssignment, MinerResult, ValidatorScore, ValidatorInfo, MinerInfo
+    from mt_aptos.consensus.node import ValidatorNode
+    from mt_aptos.core.datatypes import TaskAssignment, MinerResult, ValidatorScore, ValidatorInfo, MinerInfo
+    # Import successful, use real classes
+    USING_MOCK_CLASSES = False
 except ImportError:
     logging.error("Could not import ValidatorNode or core datatypes from the SDK. "
                   "Ensure the 'moderntensor' SDK is installed.")
@@ -24,9 +27,24 @@ except ImportError:
              self.info = type('obj', (object,), {'uid': 'fake_validator_uid'})()
         def _create_task_data(self, miner_uid: str) -> Any: return None
         # Xóa score_miner_results giả lập
-    class TaskAssignment: pass
-    class MinerResult: pass
+    class TaskAssignment: 
+        def __init__(self, task_id, miner_uid, task_data):
+            self.task_id = task_id
+            self.miner_uid = miner_uid
+            self.task_data = task_data
+    class MinerResult: 
+        def __init__(self, task_id, miner_uid, result_data):
+            self.task_id = task_id
+            self.miner_uid = miner_uid
+            self.result_data = result_data
     class ValidatorScore: pass
+    class ValidatorInfo: 
+        def __init__(self, uid, **kwargs):
+            self.uid = uid
+    class MinerInfo: 
+        def __init__(self, uid, **kwargs):
+            self.uid = uid
+    USING_MOCK_CLASSES = True
 
 # Import từ các module trong subnet này
 try:
@@ -206,7 +224,7 @@ class Subnet1Validator(ValidatorNode):
         logger.debug(f"✅ Result for task '{result.task_id}' seems valid structure-wise.")
         return True
 
-    def _generate_task_assignment(self, miner: MinerInfo) -> Optional[TaskAssignment]:
+    def _generate_task_assignment(self, miner: 'MinerInfo') -> Optional['TaskAssignment']:
         """Tạo nhiệm vụ cụ thể cho miner (ví dụ: tạo prompt sinh ảnh)."""
         # Tạo một task_id duy nhất
         task_id = self._generate_unique_task_id(miner.uid)
@@ -230,6 +248,10 @@ class Subnet1Validator(ValidatorNode):
         except Exception as e:
             logger.exception(f"💥 Error generating task data for miner '{miner.uid[:10]}...': {e}")
             return None
+
+    def _generate_unique_task_id(self, miner_uid: str) -> str:
+        """Generate unique task ID for a miner."""
+        return f"task_{miner_uid[:8]}_{int(time.time())}_{uuid.uuid4().hex[:8]}"
 
     # --- Các hàm helper tùy chọn cho Subnet 1 --- 
 

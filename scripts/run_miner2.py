@@ -21,9 +21,9 @@ sys.path.insert(0, str(project_root))
 # --- Import các lớp cần thiết --- 
 try:
     from subnet1.miner import Subnet1Miner
-    from sdk.agent.miner_agent import MinerAgent
-    from sdk.config.settings import settings as sdk_settings
-    from sdk.keymanager.decryption_utils import decode_hotkey_skey
+    from mt_aptos.agent.miner_agent import MinerAgent
+    from mt_aptos.config.settings import settings as sdk_settings
+    from mt_aptos.keymanager.decryption_utils import decode_hotkey_skey
     from pycardano import ExtendedSigningKey, Network
     # Giả sử không cần MinerRunner riêng cho script này?
 except ImportError as e:

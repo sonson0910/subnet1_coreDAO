@@ -43,18 +43,18 @@ sys.path.insert(0, str(project_root))
 
 # --- Import từ SDK Moderntensor (Cần thiết cho Datum và Context) ---
 try:
-    from sdk.metagraph.metagraph_datum import (
+    from mt_aptos.metagraph.metagraph_datum import (
         SubnetStaticDatum,
         SubnetDynamicDatum,
         DATUM_INT_DIVISOR # Cần cho việc tái tạo datum động
     )
-    from sdk.service.context import get_chain_context
-    from sdk.keymanager.decryption_utils import decode_hotkey_skey
-    from sdk.smartcontract.validator import (
+    from mt_aptos.service.context import get_chain_context
+    from mt_aptos.keymanager.decryption_utils import decode_hotkey_skey
+    from mt_aptos.smartcontract.validator import (
         read_validator_dynamic_subnet, # Dùng để lấy hash của script dynamic
         read_validator_static_subnet,  # Dùng để lấy hash của script static
     )
-    from sdk.config.settings import settings as sdk_settings
+    from mt_aptos.config.settings import settings as sdk_settings
 except ImportError as e:
     print(f"❌ FATAL: Import Error in unlock_all_datum_hash.py: {e}")
     print("   Ensure this script is run from the correct directory or PYTHONPATH is set.")

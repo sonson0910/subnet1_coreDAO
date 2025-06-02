@@ -31,23 +31,23 @@ from pycardano import (
 
 # === Import từ project Moderntensor ===
 # Datum Definitions
-from sdk.metagraph.metagraph_datum import (
+from mt_aptos.metagraph.metagraph_datum import (
     SubnetStaticDatum,
     SubnetDynamicDatum,
     DATUM_INT_DIVISOR
 )
 # Smart Contract Loading
-from sdk.smartcontract.validator import (
+from mt_aptos.smartcontract.validator import (
     read_validator_dynamic_subnet,
     read_validator_static_subnet,
 )
 # Core Services (Chỉ dùng context)
-from sdk.service.context import get_chain_context
+from mt_aptos.service.context import get_chain_context
 # Key Loading
-from sdk.keymanager.decryption_utils import decode_hotkey_skey
+from mt_aptos.keymanager.decryption_utils import decode_hotkey_skey
 # Config (Để lấy giá trị mặc định nếu env var không set)
 try:
-    from sdk.config import settings as sdk_settings
+    from mt_aptos.config import settings as sdk_settings
 except ImportError:
     sdk_settings = None
     print("Warning: Could not import sdk_settings. Using hardcoded defaults.")

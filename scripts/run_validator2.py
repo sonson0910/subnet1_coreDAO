@@ -17,9 +17,9 @@ sys.path.insert(0, str(project_root))
 
 # --- Import SDK Runner và Lớp Validator của Subnet ---
 try:
-    from sdk.runner import ValidatorRunner
+    from mt_aptos.runner import ValidatorRunner
     from subnet1.validator import Subnet1Validator
-    from sdk.config.settings import settings as sdk_settings
+    from mt_aptos.config.settings import settings as sdk_settings
     from pycardano import Network
 except ImportError as e:
     # Cannot use logger here as it's defined later

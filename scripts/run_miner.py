@@ -23,12 +23,11 @@ try:
     # Lớp Miner của Subnet 1 (xử lý task AI)
     from subnet1.miner import Subnet1Miner
     # Lớp Miner Agent từ SDK (xử lý blockchain)
-    from sdk.agent.miner_agent import MinerAgent
+    from mt_aptos.agent.miner_agent import MinerAgent
     # Các thành phần khác từ SDK
-    from sdk.config.settings import settings as sdk_settings
-    from sdk.keymanager.decryption_utils import decode_hotkey_skey
-    from pycardano import ExtendedSigningKey, Network
-    from sdk.runner import MinerRunner # <<<--- Assuming MinerRunner exists
+    from mt_aptos.config.settings import settings as sdk_settings
+    from mt_aptos.keymanager.decryption_utils import decode_hotkey_skey, decode_hotkey_account
+    from mt_aptos.runner import MinerRunner # <<<--- Assuming MinerRunner exists
 except ImportError as e:
     print(f"Error: Could not import required classes. Details: {e}")
     print("Ensure the moderntensor SDK is installed correctly and accessible.")
@@ -129,21 +128,19 @@ async def run_miner_processes():
     logger.info("------------------------------------------------------------")
 
     # Load khóa ký cho Miner Agent
-    miner_payment_skey: Optional[ExtendedSigningKey] = None
-    miner_stake_skey: Optional[ExtendedSigningKey] = None
+    miner_account = None
     try:
-        logger.info(f"🔑 Loading signing keys for Miner Agent (Hotkey: '{miner_hotkey_name}')...")
+        logger.info(f"🔑 Loading Aptos account for Miner Agent (Hotkey: '{miner_hotkey_name}')...")
         base_dir_agent = os.getenv("HOTKEY_BASE_DIR") or getattr(sdk_settings, 'HOTKEY_BASE_DIR', 'moderntensor')
-        miner_payment_skey, miner_stake_skey = decode_hotkey_skey(
+        miner_account = decode_hotkey_account(
             base_dir=base_dir_agent,
             coldkey_name=miner_coldkey_name, # type: ignore
             hotkey_name=miner_hotkey_name,   # type: ignore
             password=miner_password         # type: ignore
         )
-        if not miner_payment_skey:
-            # decode_hotkey_skey logs details, just raise here
-            raise ValueError("Failed to decode miner payment signing key (check logs from decode_hotkey_skey).")
-        logger.info("✅ Miner Agent signing keys loaded successfully.")
+        if not miner_account:
+            raise ValueError("Failed to decode miner Aptos account (check logs from decode_hotkey_account).")
+        logger.info("✅ Miner Agent Aptos account loaded successfully.")
     except FileNotFoundError as fnf_err:
          logger.critical(f"❌ FATAL: Could not find key files for Miner Agent: {fnf_err}. Check HOTKEY_BASE_DIR, MINER_COLDKEY_NAME, MINER_HOTKEY_NAME.")
          return
@@ -158,8 +155,7 @@ async def run_miner_processes():
         miner_agent_instance = MinerAgent(
             miner_uid_hex=expected_uid_hex,
             config=sdk_settings,
-            miner_skey=miner_payment_skey, # type: ignore
-            miner_stake_skey=miner_stake_skey # type: ignore
+            miner_account=miner_account, # type: ignore
         )
         logger.info("✅ Miner Agent instance initialized.")
 

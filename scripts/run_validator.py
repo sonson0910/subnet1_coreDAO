@@ -17,10 +17,9 @@ sys.path.insert(0, str(project_root))
 
 # --- Import SDK Runner và Lớp Validator của Subnet ---
 try:
-    from sdk.runner import ValidatorRunner
+    from mt_aptos.runner import ValidatorRunner
     from subnet1.validator import Subnet1Validator
-    from sdk.config.settings import settings as sdk_settings
-    from pycardano import Network
+    from mt_aptos.config.settings import settings as sdk_settings
 except ImportError as e:
     # Cannot use logger here as it's defined later
     print(f"❌ FATAL: Import Error: {e}")
@@ -102,8 +101,9 @@ def main():
             "coldkey_name": os.getenv("SUBNET1_COLDKEY_NAME", "validator1"), # Tên coldkey riêng
             "hotkey_name": os.getenv("SUBNET1_HOTKEY_NAME"), # Tên hotkey riêng
             "password": os.getenv("SUBNET1_HOTKEY_PASSWORD"), # Mật khẩu riêng
-            "blockfrost_project_id": os.getenv("BLOCKFROST_PROJECT_ID", getattr(sdk_settings, 'BLOCKFROST_PROJECT_ID', None)),
-            "network": Network.MAINNET if os.getenv("CARDANO_NETWORK", "TESTNET").upper() == "MAINNET" else Network.TESTNET,
+            "aptos_node_url": os.getenv("APTOS_NODE_URL", getattr(sdk_settings, 'APTOS_TESTNET_URL', 'https://fullnode.testnet.aptoslabs.com/v1')),
+            "aptos_faucet_url": os.getenv("APTOS_FAUCET_URL", getattr(sdk_settings, 'APTOS_FAUCET_URL', 'https://faucet.testnet.aptoslabs.com')),
+            "contract_address": os.getenv("APTOS_CONTRACT_ADDRESS", getattr(sdk_settings, 'CONTRACT_ADDRESS', None)),
             # Thêm các cấu hình khác nếu Subnet1Validator.__init__ cần
         }
         logger.debug(f"⚙️ Runner Config assembled: {runner_config}") # Log config chi tiết ở DEBUG level
@@ -111,7 +111,7 @@ def main():
         # --- Kiểm tra các giá trị config bắt buộc --- 
         required_keys = [
             'validator_address', 'validator_api_endpoint',
-            'coldkey_name', 'hotkey_name', 'password', 'blockfrost_project_id',
+            'coldkey_name', 'hotkey_name', 'password', 'aptos_node_url',
             'validator_uid' # Đã được kiểm tra gián tiếp ở trên
         ]
         missing = [k for k in required_keys if not runner_config.get(k)]

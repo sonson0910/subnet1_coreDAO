@@ -27,9 +27,9 @@ from pycardano import (
 # --- Import Datum definitions from SDK --- 
 try:
     # Import both, although we might only use one for initial state
-    from sdk.metagraph.metagraph_datum import SubnetStaticDatum, SubnetDynamicDatum
+    from mt_aptos.metagraph.metagraph_datum import SubnetStaticDatum, SubnetDynamicDatum
 except ImportError:
-    print("Error: Could not import SubnetStaticDatum/SubnetDynamicDatum from sdk.metagraph.metagraph_datum")
+    print("Error: Could not import SubnetStaticDatum/SubnetDynamicDatum from mt_aptos.metagraph.metagraph_datum")
     print("Please ensure the sdk is installed and accessible.")
     # Define placeholders if necessary for the script to potentially run partially
     # Note: This is less useful if the core logic depends heavily on the real datum structure.
@@ -50,9 +50,9 @@ except ImportError:
 
 # Try importing the new function first
 try:
-    from sdk.smartcontract.validator import read_validator_subnet
+    from mt_aptos.smartcontract.validator import read_validator_subnet
 except ImportError:
-    print("Warning: Could not import read_validator_subnet from sdk.moderntensor.sdk.smartcontract.validator")
+    print("Warning: Could not import read_validator_subnet from mt_aptos.moderntensor.sdk.smartcontract.validator")
     print("Falling back to local script reading.")
     read_validator_subnet = None # Define as None to handle fallback
 

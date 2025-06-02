@@ -20,9 +20,9 @@ import random
 try:
     # TaskModel và ResultModel định nghĩa cấu trúc dữ liệu API
     # BaseMiner cung cấp khung cơ bản cho server miner
-    from sdk.network.server import BaseMiner, TaskModel, ResultModel
+    from mt_aptos.network.server import BaseMiner, TaskModel, ResultModel
 except ImportError:
-    logging.error("Could not import BaseMiner, TaskModel, or ResultModel from sdk.network.server. "
+    logging.error("Could not import BaseMiner, TaskModel, or ResultModel from mt_aptos.network.server. "
                   "Make sure the moderntensor SDK is installed correctly.")
     # Lớp giả để tránh lỗi nếu import thất bại
     class TaskModel:

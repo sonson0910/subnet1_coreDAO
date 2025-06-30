@@ -8,6 +8,7 @@ from collections import defaultdict
 import os
 import binascii
 import uuid
+import sys
 
 # Import từ SDK Moderntensor (đã cài đặt)
 try:
@@ -15,8 +16,9 @@ try:
     from mt_aptos.core.datatypes import TaskAssignment, MinerResult, ValidatorScore, ValidatorInfo, MinerInfo
     # Import successful, use real classes
     USING_MOCK_CLASSES = False
-except ImportError:
-    logging.error("Could not import ValidatorNode or core datatypes from the SDK. "
+    logging.info("✅ Successfully imported ValidatorNode and core datatypes from SDK")
+except ImportError as e:
+    logging.error(f"Could not import ValidatorNode or core datatypes from the SDK: {e}. "
                   "Ensure the 'moderntensor' SDK is installed.")
     # Lớp giả để tránh lỗi nếu import thất bại
     class ValidatorNode:

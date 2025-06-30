@@ -233,9 +233,16 @@ class Subnet1Miner(BaseMiner):
         result_details = self.process_task(task)
 
         # 2. Tạo đối tượng ResultModel theo định nghĩa mới
+        # Decode hex UID back to string for validator compatibility
+        try:
+            miner_uid_string = bytes.fromhex(self.on_chain_uid_hex).decode('utf-8')
+        except (ValueError, UnicodeDecodeError):
+            # Fallback to hex if decode fails
+            miner_uid_string = self.on_chain_uid_hex
+            
         result_to_send = ResultModel(
             task_id=task.task_id,
-            miner_uid=self.on_chain_uid_hex, # Đảm bảo dùng UID hex đúng
+            miner_uid=miner_uid_string, # Use decoded string UID
             result_data=result_details, # Đặt dict kết quả chi tiết vào đây
         )
 

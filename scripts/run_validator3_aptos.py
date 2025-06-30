@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Aptos Validator Runner Script for Subnet1
-Replaces the Cardano-based run_validator scripts with Aptos functionality
+Aptos Validator 3 Runner Script for Subnet1
 """
 
 import os
@@ -27,8 +26,8 @@ except ImportError as e:
     print(f"❌ FATAL: Import Error: {e}")
     sys.exit(1)
 
-# --- Load environment variables (.env) ---
-env_path = project_root / '.env'
+# --- Load environment variables from config.env ---
+env_path = project_root.parent / 'config.env'  # Look for config.env in root
 
 # --- Configure Logging with RichHandler ---
 log_level_str = os.getenv('LOG_LEVEL', 'INFO').upper()
@@ -57,19 +56,25 @@ if env_path.exists():
     logger.info(f"📄 Loading environment variables from: {env_path}")
     load_dotenv(dotenv_path=env_path, override=True)
 else:
-    logger.warning(f"📄 Environment file (.env) not found at {env_path}.")
+    logger.warning(f"📄 Environment file (config.env) not found at {env_path}.")
 
 
-async def run_validator_process():
-    """Async function to configure and run Subnet1 Validator for Aptos."""
-    logger.info("🛡️ --- Starting Aptos Validator Configuration & Process --- 🛡️")
+async def run_validator3_process():
+    """Async function to configure and run Subnet1 Validator 3 for Aptos."""
+    logger.info("🛡️ --- Starting Aptos Validator 3 Configuration & Process --- 🛡️")
 
-    # === Configuration for Validator ===
-    validator_readable_id = os.getenv("SUBNET1_VALIDATOR_ID")
-    if not validator_readable_id:
-        logger.critical("❌ FATAL: SUBNET1_VALIDATOR_ID is not set in .env.")
+    # === Validator 3 Configuration ===
+    validator_private_key = os.getenv("VALIDATOR_3_PRIVATE_KEY")
+    validator_address = os.getenv("VALIDATOR_3_ADDRESS")
+    validator_api_endpoint = os.getenv("VALIDATOR_3_API_ENDPOINT")
+    validator_port = int(os.getenv("VALIDATOR_3_PORT", "8003"))
+    validator_readable_id = "subnet1_validator_3"
+
+    if not validator_private_key:
+        logger.critical("❌ FATAL: VALIDATOR_3_PRIVATE_KEY is not set in config.env.")
         return
-    logger.info(f"🆔 Read Validator ID from .env: '{validator_readable_id}'")
+    
+    logger.info(f"🆔 Using Validator 3: '{validator_readable_id}'")
 
     # --- Calculate UID hex ---
     try:
@@ -77,30 +82,28 @@ async def run_validator_process():
         expected_uid_hex = expected_uid_bytes.hex()
         logger.info(f"🔑 Derived On-Chain UID (Hex): {expected_uid_hex}")
     except Exception as e:
-        logger.critical(f"❌ FATAL: Could not encode SUBNET1_VALIDATOR_ID ('{validator_readable_id}') to derive UID: {e}")
+        logger.critical(f"❌ FATAL: Could not encode validator ID ('{validator_readable_id}') to derive UID: {e}")
         return
 
     # === Aptos Configuration ===
-    aptos_private_key = os.getenv("APTOS_PRIVATE_KEY")
     aptos_node_url = os.getenv("APTOS_NODE_URL")
     aptos_contract_address = os.getenv("APTOS_CONTRACT_ADDRESS")
-    validator_api_endpoint = os.getenv("VALIDATOR_API_ENDPOINT")
-    validator_host = os.getenv("SUBNET1_VALIDATOR_HOST") or "0.0.0.0"
-    validator_port = int(os.getenv("SUBNET1_VALIDATOR_PORT") or 8001)
+    validator_host = os.getenv("SUBNET1_VALIDATOR_HOST", "0.0.0.0")
 
     required_configs = {
-        "APTOS_PRIVATE_KEY": aptos_private_key,
+        "VALIDATOR_3_PRIVATE_KEY": validator_private_key,
         "APTOS_NODE_URL": aptos_node_url,
         "APTOS_CONTRACT_ADDRESS": aptos_contract_address,
-        "VALIDATOR_API_ENDPOINT": validator_api_endpoint
+        "VALIDATOR_3_API_ENDPOINT": validator_api_endpoint
     }
     missing_configs = [k for k, v in required_configs.items() if not v]
     if missing_configs:
-        logger.critical(f"❌ FATAL: Missing Validator configurations in .env: {missing_configs}")
+        logger.critical(f"❌ FATAL: Missing Validator 3 configurations in config.env: {missing_configs}")
         return
 
-    logger.info("🏗️ --- Subnet 1 Validator (Aptos Blockchain) Configuration --- 🏗️")
+    logger.info("🏗️ --- Subnet 1 Validator 3 (Aptos Blockchain) Configuration --- 🏗️")
     logger.info(f"🆔 Validator Readable ID : [cyan]'{validator_readable_id}'[/]")
+    logger.info(f"🔑 Validator Address     : [yellow]{validator_address}[/]")
     logger.info(f"🔑 On-Chain UID (Hex)    : [yellow]{expected_uid_hex}[/]")
     logger.info(f"🏗️ Aptos Node URL        : [cyan]{aptos_node_url}[/]")
     logger.info(f"📝 Contract Address      : [cyan]{aptos_contract_address}[/]")
@@ -111,21 +114,21 @@ async def run_validator_process():
     # Load Aptos account for Validator
     validator_account: Optional[Account] = None
     try:
-        logger.info(f"🔑 Loading Aptos account for Validator...")
-        if not aptos_private_key:
-            raise ValueError("APTOS_PRIVATE_KEY is required")
+        logger.info(f"🔑 Loading Aptos account for Validator 3...")
+        if not validator_private_key:
+            raise ValueError("VALIDATOR_3_PRIVATE_KEY is required")
             
         # Create Aptos account from private key
-        validator_account = Account.load_key(aptos_private_key)
-        logger.info(f"✅ Validator Aptos account loaded successfully. Address: {validator_account.address()}")
+        validator_account = Account.load_key(validator_private_key)
+        logger.info(f"✅ Validator 3 Aptos account loaded successfully. Address: {validator_account.address()}")
         
     except Exception as key_err:
-        logger.exception(f"💥 FATAL: Failed to load Aptos account for Validator: {key_err}")
+        logger.exception(f"💥 FATAL: Failed to load Aptos account for Validator 3: {key_err}")
         return
 
     # --- Initialize and run validator --- 
     try:
-        logger.info("🛠️ Initializing Subnet1Validator instance...")
+        logger.info("🛠️ Initializing Subnet1Validator 3 instance...")
         validator_instance = Subnet1Validator(
             validator_id=validator_readable_id,
             on_chain_uid_hex=expected_uid_hex,
@@ -136,27 +139,27 @@ async def run_validator_process():
             contract_address=aptos_contract_address,
             api_endpoint=validator_api_endpoint
         )
-        logger.info("✅ Subnet1Validator instance initialized.")
+        logger.info("✅ Subnet1Validator 3 instance initialized.")
 
         # Run Validator
-        logger.info(f"▶️ Starting Subnet1Validator main loop for UID {expected_uid_hex}...")
+        logger.info(f"▶️ Starting Subnet1Validator 3 main loop for UID {expected_uid_hex}...")
         await validator_instance.run()
-        logger.info("⏹️ Subnet1Validator main loop finished.")
+        logger.info("⏹️ Subnet1Validator 3 main loop finished.")
 
     except Exception as e:
-        logger.exception(f"💥 An unexpected error occurred during validator process startup or execution: {e}")
+        logger.exception(f"💥 An unexpected error occurred during validator 3 process startup or execution: {e}")
     finally:
-        logger.info("🛑 Validator process cleanup finished.")
+        logger.info("🛑 Validator 3 process cleanup finished.")
 
 
 # --- Main execution point --- 
 if __name__ == "__main__":
     try:
-        logger.info("🚦 Starting main asynchronous execution...")
-        asyncio.run(run_validator_process())
+        logger.info("🚦 Starting Validator 3 main asynchronous execution...")
+        asyncio.run(run_validator3_process())
     except KeyboardInterrupt:
-        logger.info("👋 Validator process interrupted by user (Ctrl+C).")
+        logger.info("👋 Validator 3 process interrupted by user (Ctrl+C).")
     except Exception as main_err:
-        logger.exception(f"💥 Critical error in main execution block: {main_err}")
+        logger.exception(f"💥 Critical error in validator 3 main execution block: {main_err}")
     finally:
-        logger.info("🏁 Validator script finished.") 
+        logger.info("🏁 Validator 3 script finished.") 

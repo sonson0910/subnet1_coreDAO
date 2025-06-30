@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Aptos Miner Runner Script for Subnet1
-Replaces the Cardano-based run_miner2.py with Aptos functionality
+Aptos Miner 1 Runner Script for Subnet1
 """
 
 import os
@@ -25,7 +24,6 @@ try:
     from subnet1.miner import Subnet1Miner
     from mt_aptos.agent.miner_agent import MinerAgent
     from mt_aptos.config.settings import settings as sdk_settings
-    from mt_aptos.keymanager.decryption_utils import decode_hotkey_account
     from mt_aptos.account import Account
 except ImportError as e:
     print(f"❌ FATAL: Import Error: {e}")
@@ -64,41 +62,32 @@ else:
     logger.warning(f"📄 Environment file (config.env) not found at {env_path}.")
 
 
-async def run_miner_processes():
-    """Async function to configure and run both Miner Server and Miner Agent for Aptos."""
-    logger.info("⛏️ --- Starting Aptos Miner Configuration & Processes --- ⛏️")
+async def run_miner1_processes():
+    """Async function to configure and run Miner 1 processes for Aptos."""
+    logger.info("⛏️ --- Starting Aptos Miner 1 Configuration & Processes --- ⛏️")
 
-    # === Get miner configuration from environment ===
-    # Check for MINER_ID env var, default to miner1 if not specified
-    miner_id = os.getenv("MINER_ID", "1")  # Can be "1" or "2"
-    
-    # Use specific miner configuration based on MINER_ID
-    if miner_id == "2":
-        miner_private_key = os.getenv("MINER_2_PRIVATE_KEY")
-        miner_address = os.getenv("MINER_2_ADDRESS")
-        miner_api_endpoint = os.getenv("MINER_2_API_ENDPOINT")
-        miner_port = int(os.getenv("MINER_2_PORT", "8101"))
-        miner_readable_id = f"subnet1_miner_{miner_id}"
-    else:  # Default to miner 1
-        miner_private_key = os.getenv("MINER_1_PRIVATE_KEY")
-        miner_address = os.getenv("MINER_1_ADDRESS") 
-        miner_api_endpoint = os.getenv("MINER_1_API_ENDPOINT")
-        miner_port = int(os.getenv("MINER_1_PORT", "8100"))
-        miner_readable_id = f"subnet1_miner_{miner_id}"
+    # === Miner 1 Configuration ===
+    miner_private_key = os.getenv("MINER_1_PRIVATE_KEY")
+    miner_address = os.getenv("MINER_1_ADDRESS")
+    miner_api_endpoint = os.getenv("MINER_1_API_ENDPOINT")
+    miner_port = int(os.getenv("MINER_1_PORT", "8100"))
+    miner_readable_id = "subnet1_miner_1"
+    # Use short UID to match blockchain registration
+    miner_uid_short = "miner_1"
 
     if not miner_private_key:
-        logger.critical(f"❌ FATAL: MINER_{miner_id}_PRIVATE_KEY is not set in config.env.")
+        logger.critical("❌ FATAL: MINER_1_PRIVATE_KEY is not set in config.env.")
         return
     
-    logger.info(f"🆔 Using Miner {miner_id}: '{miner_readable_id}'")
+    logger.info(f"🆔 Using Miner 1: '{miner_readable_id}' (UID: {miner_uid_short})")
 
-    # --- Calculate UID hex ---
+    # --- Calculate UID hex (use short UID for blockchain compatibility) ---
     try:
-        expected_uid_bytes = miner_readable_id.encode('utf-8')
+        expected_uid_bytes = miner_uid_short.encode('utf-8')
         expected_uid_hex = expected_uid_bytes.hex()
         logger.info(f"🔑 Derived On-Chain UID (Hex): {expected_uid_hex}")
     except Exception as e:
-        logger.critical(f"❌ FATAL: Could not encode miner ID ('{miner_readable_id}') to derive UID: {e}")
+        logger.critical(f"❌ FATAL: Could not encode miner UID ('{miner_uid_short}') to derive UID: {e}")
         return
 
     # === Configuration for Subnet1Miner ===
@@ -109,7 +98,7 @@ async def run_miner_processes():
     
     miner_host = os.getenv("SUBNET1_MINER_HOST", "0.0.0.0")
 
-    logger.info("🖥️ --- Subnet 1 Miner AI Task Server Configuration --- 🖥️")
+    logger.info("🖥️ --- Subnet 1 Miner 1 AI Task Server Configuration --- 🖥️")
     logger.info(f"🆔 Miner Readable ID     : [cyan]'{miner_readable_id}'[/]")
     logger.info(f"🔑 Miner Address         : [yellow]{miner_address}[/]")
     logger.info(f"👂 Listening on          : [bold blue]{miner_host}:{miner_port}[/]")
@@ -122,17 +111,17 @@ async def run_miner_processes():
     miner_check_interval = int(os.getenv("MINER_AGENT_CHECK_INTERVAL", "300"))
 
     agent_required_keys = {
-        f"MINER_{miner_id}_PRIVATE_KEY": miner_private_key,
+        "MINER_1_PRIVATE_KEY": miner_private_key,
         "APTOS_NODE_URL": aptos_node_url,
         "APTOS_CONTRACT_ADDRESS": aptos_contract_address,
         "VALIDATOR_1_API_ENDPOINT": validator_result_submit_url
     }
     missing_agent_configs = [k for k, v in agent_required_keys.items() if not v]
     if missing_agent_configs:
-        logger.critical(f"❌ FATAL: Missing Miner Agent configurations in config.env: {missing_agent_configs}")
+        logger.critical(f"❌ FATAL: Missing Miner 1 Agent configurations in config.env: {missing_agent_configs}")
         return
 
-    logger.info("🔗 --- Miner Agent (Aptos Blockchain Interaction) Configuration --- 🔗")
+    logger.info("🔗 --- Miner 1 Agent (Aptos Blockchain Interaction) Configuration --- 🔗")
     logger.info(f"🔑 Agent On-Chain UID    : [yellow]{expected_uid_hex}[/]")
     logger.info(f"🏗️ Aptos Node URL        : [cyan]{aptos_node_url}[/]")
     logger.info(f"📝 Contract Address      : [cyan]{aptos_contract_address}[/]")
@@ -143,32 +132,30 @@ async def run_miner_processes():
     # Load Aptos account for Miner Agent
     miner_account: Optional[Account] = None
     try:
-        logger.info(f"🔑 Loading Aptos account for Miner Agent...")
+        logger.info(f"🔑 Loading Aptos account for Miner 1 Agent...")
         if not miner_private_key:
-            raise ValueError(f"MINER_{miner_id}_PRIVATE_KEY is required")
+            raise ValueError("MINER_1_PRIVATE_KEY is required")
             
         # Create Aptos account from private key
         miner_account = Account.load_key(miner_private_key)
-        logger.info(f"✅ Miner Agent Aptos account loaded successfully. Address: {miner_account.address()}")
+        logger.info(f"✅ Miner 1 Agent Aptos account loaded successfully. Address: {miner_account.address()}")
         
     except Exception as key_err:
-        logger.exception(f"💥 FATAL: Failed to load Aptos account for Miner Agent: {key_err}")
+        logger.exception(f"💥 FATAL: Failed to load Aptos account for Miner 1 Agent: {key_err}")
         return
 
     # --- Initialize processes --- 
     miner_agent_instance: Optional[MinerAgent] = None
     try:
-        logger.info("🛠️ Initializing Miner Agent instance...")
-        miner_agent_instance = MinerAgent(
-            miner_uid_hex=expected_uid_hex,
-            config=dict(sdk_settings),
-            miner_account=miner_account,
-            aptos_node_url=aptos_node_url,
-            contract_address=aptos_contract_address
-        )
-        logger.info("✅ Miner Agent instance initialized.")
+        logger.info("🛠️ Initializing Miner 1 Agent instance...")
+        
+        # Note: MinerAgent expects ExtendedSigningKey from PyCardano, not Aptos Account
+        # For now, we'll skip MinerAgent initialization since it's designed for Cardano
+        # TODO: Create AptosAgent for Aptos blockchain interaction
+        logger.warning("⚠️ MinerAgent is designed for Cardano. Skipping agent initialization for Aptos deployment.")
+        logger.warning("⚠️ Consider implementing AptosAgent for Aptos blockchain interaction.")
 
-        logger.info(f"🛠️ Initializing Subnet1Miner Server ('{miner_readable_id}')...")
+        logger.info(f"🛠️ Initializing Subnet1Miner 1 Server ('{miner_readable_id}')...")
         miner_server_instance = Subnet1Miner(
             validator_url=validator_result_submit_url,
             on_chain_uid_hex=expected_uid_hex,
@@ -176,39 +163,35 @@ async def run_miner_processes():
             port=miner_port,
             miner_id=miner_readable_id
         )
-        logger.info("✅ Subnet1Miner Server instance initialized.")
+        logger.info("✅ Subnet1Miner 1 Server instance initialized.")
 
         # Run Miner Server
         miner_server_thread = threading.Thread(target=miner_server_instance.run, daemon=True)
         miner_server_thread.start()
-        logger.info(f"🧵 Started Subnet1Miner server in background thread for '{miner_readable_id}' (UID: {expected_uid_hex})...")
+        logger.info(f"🧵 Started Subnet1Miner 1 server in background thread for '{miner_readable_id}' (UID: {expected_uid_hex})...")
 
-        await asyncio.sleep(5)
-
-        # Run Miner Agent
-        logger.info(f"▶️ Starting Miner Agent main loop for UID {expected_uid_hex}...")
-        await miner_agent_instance.run(
-            validator_api_url=validator_result_submit_url,
-            check_interval_seconds=miner_check_interval
-        )
-        logger.info("⏹️ Miner Agent main loop finished.")
+        # Keep the miner server running
+        logger.info(f"🔄 Miner 1 Server is running. Press Ctrl+C to stop.")
+        while True:
+            await asyncio.sleep(60)  # Keep alive
+            logger.debug(f"🔄 Miner 1 Server heartbeat - UID: {expected_uid_hex}")
 
     except Exception as e:
-        logger.exception(f"💥 An unexpected error occurred during miner process startup or execution: {e}")
+        logger.exception(f"💥 An unexpected error occurred during miner 1 process startup or execution: {e}")
     finally:
         if miner_agent_instance:
             await miner_agent_instance.close()
-        logger.info("🛑 Miner processes cleanup finished.")
+        logger.info("🛑 Miner 1 processes cleanup finished.")
 
 
 # --- Main execution point --- 
 if __name__ == "__main__":
     try:
-        logger.info("🚦 Starting main asynchronous execution...")
-        asyncio.run(run_miner_processes())
+        logger.info("🚦 Starting Miner 1 main asynchronous execution...")
+        asyncio.run(run_miner1_processes())
     except KeyboardInterrupt:
-        logger.info("👋 Miner processes interrupted by user (Ctrl+C).")
+        logger.info("👋 Miner 1 processes interrupted by user (Ctrl+C).")
     except Exception as main_err:
-        logger.exception(f"💥 Critical error in main execution block: {main_err}")
+        logger.exception(f"💥 Critical error in miner 1 main execution block: {main_err}")
     finally:
-        logger.info("🏁 Miner script finished.") 
+        logger.info("🏁 Miner 1 script finished.") 

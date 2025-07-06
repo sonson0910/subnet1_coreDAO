@@ -4,7 +4,6 @@ Import Existing Wallet cho Subnet1
 Script để sử dụng ví thật có sẵn cho testing
 """
 
-import os
 import sys
 import asyncio
 import getpass

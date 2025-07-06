@@ -5,7 +5,7 @@ _keys.py                                                                        
 
 📋 Current keys:
 Key 1 (Validator): 0x34158c2843bd12601b6fb1d9079b89dd5dfb77197b96c89e4c50510a87b7a8d8
-              Address: 0x9413cff39eaafb43f683451d2492240c0d2729e3c61a91aef6f960367e52afac
+              Address: 0xdbcbf08e0720fc7ed4c8318c0e2cbbde1cc77ba33f06d5c08b7533c4240ca7cf
 Key 2 (Miner):     0x90702114101ecca796263b0a1a884b2c83de73740c12359bc978e1e6f09ab438
               Address: 0xdbcbf08e0720fc7ed4c8318c0e2cbbde1cc77ba33f06d5c08b7533c4240ca7cf
 

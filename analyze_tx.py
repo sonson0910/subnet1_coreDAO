@@ -5,7 +5,6 @@ Deep Transaction Analysis
 
 import asyncio
 import httpx
-import json
 
 async def analyze_transaction():
     tx_hash = "0x3ef8d61a31c267484b8eeb7abde3261a4a70761983bcbd717e1723d4c8eae353"

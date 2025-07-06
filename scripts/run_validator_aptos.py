@@ -134,7 +134,8 @@ async def run_validator_process():
             aptos_node_url=aptos_node_url,
             aptos_account=validator_account,
             contract_address=aptos_contract_address,
-            api_endpoint=validator_api_endpoint
+            api_endpoint=validator_api_endpoint,
+            api_port=validator_port
         )
         logger.info("✅ Subnet1Validator instance initialized.")
 

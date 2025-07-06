@@ -3,7 +3,6 @@
 Setup Script cho Subnet1 - Tạo Key và Xin Token để Test
 """
 
-import os
 import sys
 import logging
 import asyncio

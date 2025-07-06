@@ -9,11 +9,12 @@ import os
 import binascii
 import uuid
 import sys
+import asyncio
 
 # Import từ SDK Moderntensor (đã cài đặt)
 try:
-    from mt_aptos.consensus.node import ValidatorNode
-    from mt_aptos.core.datatypes import TaskAssignment, MinerResult, ValidatorScore, ValidatorInfo, MinerInfo
+    from moderntensor.mt_aptos.consensus.node import ValidatorNode
+    from moderntensor.mt_aptos.core.datatypes import TaskAssignment, MinerResult, ValidatorScore, ValidatorInfo, MinerInfo
     # Import successful, use real classes
     USING_MOCK_CLASSES = False
     logging.info("✅ Successfully imported ValidatorNode and core datatypes from SDK")
@@ -78,7 +79,14 @@ class Subnet1Validator(ValidatorNode):
 
     def __init__(self, *args, **kwargs):
         """Khởi tạo ValidatorNode và các thuộc tính riêng của Subnet 1."""
+        # Extract api_port if provided
+        self.api_port = kwargs.pop('api_port', None)
+        
         super().__init__(*args, **kwargs)
+        
+        # Set reference to self in core for subnet-specific scoring access
+        self.core.validator_instance = self
+        
         logger.info(f"✨ [bold]Subnet1Validator[/] initialized for UID: [cyan]{self.info.uid[:10]}...[/]")
         # Thêm các khởi tạo khác nếu cần, ví dụ:
         # self.image_generation_model = self._load_model()
@@ -287,3 +295,32 @@ class Subnet1Validator(ValidatorNode):
     #     """Giải mã ảnh từ chuỗi base64."""
     #     # ... logic giải mã ...
     #     # return image_object
+
+    # === Main run method for backward compatibility ===
+    async def run(self):
+        """
+        Main run method for backward compatibility.
+        
+        This method provides backward compatibility with existing validator scripts
+        that expect a run() method on the validator instance.
+        """
+        logger.info(f"🚀 Starting Subnet1Validator run method for UID: {self.info.uid}")
+        
+        try:
+            # Use the new modular ValidatorNode interface with correct port
+            await self.start(api_port=self.api_port)
+            logger.info(f"✅ Subnet1Validator started successfully")
+            
+            # Run until interrupted
+            try:
+                while True:
+                    await asyncio.sleep(1)
+            except KeyboardInterrupt:
+                logger.info(f"👋 Subnet1Validator stopped by user")
+                
+        except Exception as e:
+            logger.error(f"❌ Subnet1Validator run error: {e}")
+            raise
+        finally:
+            await self.shutdown()
+            logger.info(f"🏁 Subnet1Validator run method finished")

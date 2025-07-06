@@ -161,7 +161,8 @@ async def run_validator1_process():
             account=validator_account,
             contract_address=aptos_contract_address,
             consensus_mode="synchronized",  # Enable synchronized consensus for true coordination between validators
-            batch_wait_time=30.0  # Wait 30 seconds for each batch
+            batch_wait_time=30.0,  # Wait 30 seconds for each batch
+            api_port=validator_port  # Use the configured port instead of default 8000
         )
         logger.info("✅ Subnet1Validator 1 instance initialized.")
 

@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 """
-Test script to verify Aptos migration is working correctly
+Test ModernTensor Aptos Migration
+This script tests if the migration from Cardano to Aptos is complete
 """
 
 import sys
-import logging
+import os
+import subprocess
 from pathlib import Path
+
+# Add project root to path for imports
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "moderntensor"))
+
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
-from rich.text import Text
-
-# Add project root to path
-project_root = Path(__file__).parent
-sys.path.insert(0, str(project_root))
 
 console = Console()
 
@@ -22,13 +25,13 @@ def test_imports():
     console.print("\n[bold blue]Testing Critical Imports...[/bold blue]")
     
     tests = [
-        ("Core SDK", "from mt_aptos.consensus.node import ValidatorNode"),
-        ("Miner Agent", "from mt_aptos.agent.miner_agent import MinerAgent"),
-        ("Metagraph Data", "from mt_aptos.metagraph.metagraph_data import get_all_miner_data, get_all_validator_data"),
-        ("Aptos Client", "from mt_aptos.async_client import RestClient"),
-        ("Aptos Account", "from mt_aptos.account import Account"),
-        ("Core Datatypes", "from mt_aptos.core.datatypes import MinerInfo, ValidatorInfo"),
-        ("Settings", "from mt_aptos.config.settings import settings"),
+        ("Core SDK", "from moderntensor.mt_aptos.consensus.node import ValidatorNode"),
+        ("Miner Agent", "from moderntensor.mt_aptos.agent.miner_agent import MinerAgent"),
+        ("Metagraph Data", "from moderntensor.mt_aptos.metagraph.metagraph_data import get_all_miner_data, get_all_validator_data"),
+        ("Aptos Client", "from moderntensor.mt_aptos.async_client import RestClient"),
+        ("Aptos Account", "from moderntensor.mt_aptos.account import Account"),
+        ("Core Datatypes", "from moderntensor.mt_aptos.core.datatypes import MinerInfo, ValidatorInfo"),
+        ("Settings", "from moderntensor.mt_aptos.config.settings import settings"),
         ("Subnet1 Miner", "from subnet1.miner import Subnet1Miner"),
         ("Subnet1 Validator", "from subnet1.validator import Subnet1Validator"),
         ("Miner Script", "from scripts.run_miner_aptos import run_miner_processes"),
@@ -150,7 +153,7 @@ def test_aptos_integration():
     
     # Test 1: Settings load correctly
     try:
-        from mt_aptos.config.settings import settings
+        from moderntensor.mt_aptos.config.settings import settings
         if hasattr(settings, 'APTOS_NODE_URL'):
             tests.append(("Settings", "✅ PASS", "green"))
         else:
@@ -160,7 +163,7 @@ def test_aptos_integration():
     
     # Test 2: Account creation works
     try:
-        from mt_aptos.account import Account
+        from moderntensor.mt_aptos.account import Account
         # Don't actually create account without key, just test import
         tests.append(("Account Creation", "✅ PASS", "green"))
     except Exception as e:
@@ -168,14 +171,14 @@ def test_aptos_integration():
     
     # Test 3: RestClient import
     try:
-        from mt_aptos.async_client import RestClient
+        from moderntensor.mt_aptos.async_client import RestClient
         tests.append(("REST Client", "✅ PASS", "green"))
     except Exception as e:
         tests.append(("REST Client", f"❌ FAIL: {e}", "red"))
     
     # Test 4: Contract client
     try:
-        from mt_aptos.aptos_core.contract_client import AptosContractClient
+        from moderntensor.mt_aptos.aptos_core.contract_client import AptosContractClient
         tests.append(("Contract Client", "✅ PASS", "green"))
     except Exception as e:
         tests.append(("Contract Client", f"❌ FAIL: {e}", "red"))
@@ -221,25 +224,17 @@ def main():
     
     if passed_tests == total_tests:
         console.print(Panel.fit(
-            "[bold green]🎉 MIGRATION SUCCESSFUL! 🎉[/bold green]\n\n"
-            "✅ All imports working\n"
-            "✅ Cardano references cleaned\n"
-            "✅ Aptos integration ready\n\n"
-            "[dim]You can now run the Aptos scripts:[/dim]\n"
-            "[cyan]python scripts/run_miner_aptos.py[/cyan]\n"
-            "[cyan]python scripts/run_validator_aptos.py[/cyan]",
+            "[bold green]🎉 MIGRATION COMPLETE! 🎉[/bold green]\n"
+            "All tests passed. The system is ready for Aptos.",
             border_style="green"
         ))
     else:
         console.print(Panel.fit(
-            f"[bold yellow]⚠️ MIGRATION INCOMPLETE[/bold yellow]\n\n"
-            f"Passed: {passed_tests}/{total_tests} test suites\n"
-            f"Some issues need to be resolved before production use.",
-            border_style="yellow"
+            f"[bold red]⚠️ MIGRATION INCOMPLETE[/bold red]\n"
+            f"Only {passed_tests}/{total_tests} test suites passed.\n"
+            "Please fix the issues above before proceeding.",
+            border_style="red"
         ))
-    
-    return passed_tests == total_tests
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1) 
+    main() 

@@ -4,10 +4,8 @@ Kiểm tra Balance của Wallet
 Script nhanh để check số dư token trong ví
 """
 
-import os
 import sys
 import asyncio
-import json
 from pathlib import Path
 from dotenv import load_dotenv
 

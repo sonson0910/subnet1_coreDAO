@@ -129,15 +129,24 @@ async def run_validator3_process():
     # --- Initialize and run validator --- 
     try:
         logger.info("🛠️ Initializing Subnet1Validator 3 instance...")
+        validator_info = {
+            "validator_id": validator_readable_id,
+            "on_chain_uid_hex": expected_uid_hex,
+            "host": validator_host,
+            "port": validator_port,
+            "aptos_node_url": aptos_node_url,
+            "contract_address": aptos_contract_address,
+            "api_endpoint": validator_api_endpoint
+        }
+        aptos_client = None  # Assuming aptos_client is not provided in the original code
         validator_instance = Subnet1Validator(
-            validator_id=validator_readable_id,
-            on_chain_uid_hex=expected_uid_hex,
-            host=validator_host,
-            port=validator_port,
-            aptos_node_url=aptos_node_url,
-            aptos_account=validator_account,
+            validator_info=validator_info,
+            aptos_client=aptos_client,
+            account=validator_account,
             contract_address=aptos_contract_address,
-            api_endpoint=validator_api_endpoint
+            consensus_mode="synchronized",  # Enable synchronized consensus for coordination between validators  
+            batch_wait_time=30.0,  # Wait 30 seconds for each batch
+            api_port=validator_port  # Use the configured port instead of default 8000
         )
         logger.info("✅ Subnet1Validator 3 instance initialized.")
 

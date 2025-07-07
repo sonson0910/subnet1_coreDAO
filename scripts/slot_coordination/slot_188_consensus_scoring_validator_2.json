@@ -1,0 +1,9 @@
+{
+  "validator_uid": "validator_2",
+  "slot": 188,
+  "phase": "consensus_scoring",
+  "timestamp": 1751872392.474281,
+  "extra_data": {
+    "scores": []
+  }
+}

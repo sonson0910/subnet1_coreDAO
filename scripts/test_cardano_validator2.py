@@ -70,7 +70,7 @@ logger.info(f"📝 Log file: {log_filename}")
 logger.info("=" * 80)
 
 # Add project root to path
-project_root = Path(__file__).parent
+project_root = Path(__file__).parent.parent.parent  # Go up to the actual project root
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "moderntensor"))
 

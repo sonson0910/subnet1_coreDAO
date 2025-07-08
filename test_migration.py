@@ -16,24 +16,24 @@ def test_imports():
     logger.info("🧪 Testing imports...")
     
     try:
-        import mt_aptos
-        logger.info("✅ mt_aptos import successful")
+        import moderntensor_aptos.mt_core
+        logger.info("✅ moderntensor_aptos.mt_core import successful")
     except ImportError as e:
-        logger.error(f"❌ mt_aptos import failed: {e}")
+        logger.error(f"❌ moderntensor_aptos.mt_core import failed: {e}")
         return False
     
     try:
-        from mt_aptos.core import datatypes
-        logger.info("✅ mt_aptos.core.datatypes import successful")
+        from moderntensor_aptos.mt_core.core import datatypes
+        logger.info("✅ moderntensor_aptos.mt_core.core.datatypes import successful")
     except ImportError as e:
-        logger.error(f"❌ mt_aptos.core.datatypes import failed: {e}")
+        logger.error(f"❌ moderntensor_aptos.mt_core.core.datatypes import failed: {e}")
         return False
     
     try:
-        from mt_aptos.account import Account
-        logger.info("✅ mt_aptos.account.Account import successful")
+        from moderntensor_aptos.mt_core.account import Account
+        logger.info("✅ moderntensor_aptos.mt_core.account.Account import successful")
     except ImportError as e:
-        logger.error(f"❌ mt_aptos.account.Account import failed: {e}")
+        logger.error(f"❌ moderntensor_aptos.mt_core.account.Account import failed: {e}")
         return False
     
     try:

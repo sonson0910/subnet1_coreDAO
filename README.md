@@ -1,138 +1,188 @@
-# Moderntensor - Subnet 1: Image Generation
+# Subnet1 - Core Blockchain Image Generation
 
-Đây là triển khai cụ thể cho một subnet (mạng con) hoạt động trên nền tảng Moderntensor SDK. Subnet này tập trung vào bài toán **sinh ảnh từ mô tả văn bản (text-to-image generation)**.
+This directory contains the implementation of Subnet1 for the ModernTensor network, migrated from Aptos to Core blockchain. Subnet1 specializes in image generation tasks using AI models and distributed validation.
 
-## Giới thiệu
+## 🚀 Migration Status
 
-Subnet này cho phép các **Validators** đưa ra yêu cầu dưới dạng mô tả văn bản (prompts) và các **Miners** sử dụng các mô hình AI để tạo ra hình ảnh tương ứng với mô tả đó. Sau đó, Validators sẽ đánh giá chất lượng của hình ảnh được tạo ra (ví dụ: dựa trên mức độ phù hợp với prompt bằng cách sử dụng CLIP score) và tham gia vào cơ chế đồng thuận của Moderntensor SDK để xác định phần thưởng và điểm tin cậy.
+**✅ COMPLETED**: Full migration from Aptos to Core blockchain
+- All dependencies updated to use Core blockchain
+- Smart contracts migrated to Solidity
+- Network configuration updated
+- Scripts and examples migrated
+- Documentation updated
 
-Subnet này được xây dựng dựa trên và yêu cầu [Moderntensor SDK](https://github.com/sonson0910/moderntensor) (thay thế bằng link repo SDK thực tế của bạn nếu có).
+## 🏗️ Architecture
 
-## Tính năng
+Subnet1 implements a distributed image generation network with:
+- **Validators**: Assign image generation tasks and score results
+- **Miners**: Execute image generation using AI models
+- **Core Blockchain**: Handles consensus and rewards distribution
 
-* Sinh ảnh từ văn bản sử dụng các model AI (ví dụ: Stable Diffusion).
-* Chấm điểm ảnh tự động dựa trên sự phù hợp với prompt (ví dụ: CLIP score).
-* Tích hợp với cơ chế đồng thuận, khuyến khích và xử phạt của Moderntensor SDK.
-* Cho phép tùy chỉnh model sinh ảnh và model chấm điểm.
+## 📁 Directory Structure
 
-## Yêu cầu hệ thống
+```
+subnet1_aptos/
+├── subnet1/                    # Core subnet implementation
+│   ├── validator.py           # Validator logic for image scoring
+│   ├── miner.py              # Miner logic for image generation
+│   ├── models/               # AI model implementations
+│   └── scoring/              # Image scoring algorithms
+├── scripts/                   # Execution scripts
+│   ├── run_validator_core.py  # Core blockchain validator runner
+│   ├── run_miner_core.py     # Core blockchain miner runner
+│   └── ...
+├── tests/                     # Test files
+├── requirements.txt          # Core blockchain dependencies
+└── setup_keys_and_tokens.py  # Core blockchain setup script
+```
 
-* Đã cài đặt **Moderntensor SDK** (xem hướng dẫn cài đặt của SDK).
-* **Python** (khuyến nghị 3.10+).
-* Môi trường ảo Python (`venv`, `conda`).
-* Các thư viện Python cho AI được liệt kê trong `requirements.txt` (ví dụ: `torch`, `diffusers`, `transformers`, `clip`).
-* Truy cập vào mạng **Cardano Testnet** (hoặc Mainnet tùy cấu hình).
-* Một **Ví Cardano Testnet** đã được tạo (bằng SDK hoặc công cụ khác) và có một ít **tADA** để validator trả phí giao dịch.
-* **Blockfrost Project ID** cho mạng Testnet (hoặc Mainnet).
-* **Phần cứng:** Khuyến nghị sử dụng máy có GPU hỗ trợ (NVIDIA CUDA hoặc Apple Silicon MPS) để tăng tốc độ xử lý model AI.
+## 🔧 Setup Instructions
 
-## Cài đặt và Thiết lập
+### 1. Install Dependencies
 
-1.  **Clone Repository:**
-    ```bash
-    git clone <URL_REPO_SUBNET1_CUA_BAN>
-    cd moderntensor-subnet1
-    ```
-2.  **Tạo và Kích hoạt Môi trường ảo:**
-    ```bash
-    python -m venv .venv
-    source .venv/bin/activate  # Linux/macOS
-    # .\.venv\Scripts\activate # Windows
-    ```
-3.  **Cài đặt Moderntensor SDK:**
-    * Nếu SDK nằm cục bộ:
-        ```bash
-        pip install -e /path/to/your/moderntensor/sdk
-        ```
-    * Nếu SDK trên Github:
-        ```bash
-        pip install git+[https://github.com/sonson0910/moderntensor.git](https://github.com/sonson0910/moderntensor.git) # Thay link đúng
-        ```
-    * Hoặc nếu SDK đã được đóng gói và publish:
-        ```bash
-        pip install moderntensor # Thay tên package đúng
-        ```
-4.  **Cài đặt Dependencies của Subnet:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-5.  **Tạo và Cấu hình file `.env`:**
-    * Sao chép file `.env.example` (nếu có) thành `.env` hoặc tạo file `.env` mới ở thư mục gốc `moderntensor-subnet1`.
-    * Điền các giá trị cần thiết (xem phần **Cấu hình** bên dưới). **Quan trọng:** Cần có thông tin key của validator, địa chỉ API, Blockfrost ID, v.v.
-6.  **(Tùy chọn nhưng khuyến nghị) Chuẩn bị Datum trên Testnet:**
-    * Đảm bảo bạn có một ví funding với tADA. Cấu hình thông tin ví funding trong `.env`.
-    * Chạy script để tạo UTXO chứa Datum ban đầu cho validator và miner của subnet này trên Testnet:
-        ```bash
-        python scripts/prepare_testnet_datums.py
-        ```
-    * Việc này đảm bảo validator có thể đọc được thông tin miner (đặc biệt là `api_endpoint`) từ blockchain khi bắt đầu.
+```bash
+pip install -r requirements.txt
+```
 
-## Chạy Subnet
+### 2. Setup Keys and Configuration
 
-Subnet này sử dụng mô hình tích hợp `ValidatorRunner` từ SDK, nghĩa là tiến trình validator sẽ chạy cả logic đồng thuận và API server. Bạn cần chạy 2 tiến trình chính:
+Run the setup script to create keys and configure the environment:
 
-1.  **Chạy Validator (Logic + API Server):**
-    * Mở Terminal 1.
-    * `cd` vào thư mục `moderntensor-subnet1`.
-    * Kích hoạt môi trường ảo.
-    * Chạy script:
-        ```bash
-        python scripts/run_validator.py
-        ```
-    * Script này sẽ sử dụng `ValidatorRunner` để khởi động Uvicorn và chạy vòng lặp đồng thuận của `Subnet1Validator` trong nền. Nó sẽ lắng nghe các kết nối API trên host và port được cấu hình trong `.env` (ví dụ: `127.0.0.1:8001`).
+```bash
+python setup_keys_and_tokens.py
+```
 
-2.  **Chạy Miner:**
-    * Mở Terminal 2.
-    * `cd` vào thư mục `moderntensor-subnet1`.
-    * Kích hoạt môi trường ảo.
-    * Chạy script:
-        ```bash
-        python scripts/run_miner.py
-        ```
-    * Miner sẽ khởi động, lắng nghe task trên cổng của nó (ví dụ: 9001) và gửi kết quả về địa chỉ API của validator đã cấu hình trong `.env`.
+This will:
+- Create coldkey and hotkeys for validator/miner
+- Configure Core blockchain network settings
+- Request test tokens from faucet
+- Generate `.env` configuration file
 
-## Cấu hình
+### 3. Configure Environment
 
-Các cấu hình quan trọng được quản lý thông qua file `.env` ở thư mục gốc `moderntensor-subnet1`. Dưới đây là các biến môi trường chính:
+Edit `.env` file with your specific configuration:
 
-```dotenv
-# Logging
-LOG_LEVEL=INFO # DEBUG, INFO, WARNING, ERROR
+```env
+# Core Blockchain Configuration
+CORE_NODE_URL=https://rpc.test.btcs.network
+CORE_CHAIN_ID=1115
+CORE_CONTRACT_ADDRESS=0x1234567890abcdef1234567890abcdef12345678
 
-# Cấu hình Cardano Context (chung cho cả 2 tiến trình nếu đọc cùng file)
-BLOCKFROST_PROJECT_ID=preprod...your_id...
-CARDANO_NETWORK=TESTNET # hoặc MAINNET
+# Validator Configuration
+SUBNET1_VALIDATOR_ID=subnet1_validator_001
+VALIDATOR_API_ENDPOINT=http://localhost:8001
+CORE_PRIVATE_KEY=your_private_key_here
 
-# --- Cấu hình cho Validator (dùng bởi scripts/run_validator.py) ---
-# Key của Validator Subnet 1
-HOTKEY_BASE_DIR=moderntensor # Thư mục chứa coldkeys (thường lấy từ SDK settings)
-SUBNET1_COLDKEY_NAME=kickoff_validator # Tên coldkey chứa hotkey validator
-SUBNET1_HOTKEY_NAME=hk_validator1    # Tên hotkey validator
-SUBNET1_HOTKEY_PASSWORD=your_validator_password # Mật khẩu giải mã hotkey
+# Miner Configuration
+SUBNET1_MINER_ID=subnet1_miner_001
+SUBNET1_MINER_HOST=0.0.0.0
+SUBNET1_MINER_PORT=9001
+```
 
-# Thông tin định danh và API của Validator Subnet 1
-SUBNET1_VALIDATOR_UID=validator_hex_uid_001 # UID hex duy nhất cho validator này
-SUBNET1_VALIDATOR_ADDRESS=addr_test1q...     # Địa chỉ Cardano của hotkey validator
-SUBNET1_VALIDATOR_API_ENDPOINT=[http://127.0.0.1:8001](http://127.0.0.1:8001) # URL công khai/có thể truy cập mà validator này lắng nghe
+## 🚀 Running the Network
 
-# Cấu hình Server API (cho ValidatorRunner)
-SUBNET1_API_HOST=127.0.0.1 # IP validator lắng nghe (0.0.0.0 cho mọi interface)
-SUBNET1_API_PORT=8001    # Cổng validator lắng nghe
+### Start Validator
 
-# --- Cấu hình cho Miner (dùng bởi scripts/run_miner.py) ---
-# URL Validator API mà Miner cần gửi kết quả đến
-SUBNET1_VALIDATOR_URL=[http://127.0.0.1:8001/v1/miner/submit_result](http://127.0.0.1:8001/v1/miner/submit_result) # Phải khớp host/port của validator API
+```bash
+python scripts/run_validator_core.py
+```
 
-# Thông tin Miner
-SUBNET1_MINER_ID=6d795f636f6f6c... # UID Hex của miner này (phải khớp với UID on-chain)
-SUBNET1_MINER_HOST=127.0.0.1 # IP miner lắng nghe (0.0.0.0 cho mọi interface)
-SUBNET1_MINER_PORT=9001    # Cổng miner lắng nghe
+### Start Miner
 
-# --- (Tùy chọn) Cấu hình Ví Funding (dùng bởi prepare_testnet_datums.py) ---
-# FUNDING_COLDKEY_NAME=...
-# FUNDING_HOTKEY_NAME=...
-# FUNDING_PASSWORD=...
+```bash
+python scripts/run_miner_core.py
+```
 
-# --- (Tùy chọn) Cấu hình Model AI ---
-# IMAGEGEN_MODEL_ID="segmind/tiny-sd"
-# CLIP_MODEL_NAME="ViT-B/32"
+### Monitor Tokens
+
+```bash
+python monitor_tokens.py
+```
+
+## 🔍 Key Features
+
+### Image Generation
+- Uses state-of-the-art AI models (Stable Diffusion, etc.)
+- Supports various image generation prompts
+- Configurable model parameters
+
+### Scoring System
+- CLIP-based image-text similarity scoring
+- Quality assessment algorithms
+- Reward distribution based on performance
+
+### Core Blockchain Integration
+- Smart contracts for task distribution
+- Transparent reward mechanisms
+- Decentralized consensus
+
+## 🛠️ Development
+
+### Adding New Models
+
+1. Implement model in `subnet1/models/`
+2. Update `subnet1/miner.py` to support new model
+3. Test with validator scoring system
+
+### Custom Scoring
+
+1. Add scoring function to `subnet1/scoring/`
+2. Update `subnet1/validator.py` to use new scoring
+3. Test with various image quality metrics
+
+## 📚 Network Configuration
+
+### Core Blockchain Networks
+
+- **Testnet**: `https://rpc.test.btcs.network` (Chain ID: 1115)
+- **Mainnet**: `https://rpc.coredao.org` (Chain ID: 1116)
+
+### Faucet
+
+Request test tokens from:
+- **Testnet**: `https://faucet.test.btcs.network`
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+1. **Import Errors**: Ensure `moderntensor_aptos` is installed
+2. **Key Loading**: Check private key format and permissions
+3. **Network Issues**: Verify Core blockchain node connectivity
+4. **Token Balance**: Ensure sufficient CORE tokens for transactions
+
+### Debug Mode
+
+Enable debug logging:
+
+```bash
+export LOG_LEVEL=DEBUG
+python scripts/run_validator_core.py
+```
+
+## 📝 Migration Notes
+
+This subnet has been migrated from Aptos to Core blockchain:
+- Dependencies updated from `aptos-sdk` to `web3` and Core blockchain libraries
+- Network configuration changed from Aptos endpoints to Core blockchain RPC
+- Smart contracts migrated from Move to Solidity
+- Account management updated for Ethereum-compatible addresses
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🔗 Related Documentation
+
+- [ModernTensor Core Documentation](../moderntensor_aptos/README.md)
+- [Core Blockchain Documentation](https://docs.coredao.org/)
+- [Setup Guide](SETUP_GUIDE.md)
+- [Migration Guide](MIGRATION_COMPLETED.md)

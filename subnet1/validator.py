@@ -13,40 +13,60 @@ import asyncio
 
 # Import từ SDK Moderntensor (đã cài đặt)
 try:
-    from moderntensor.mt_aptos.consensus.node import ValidatorNode
-    from moderntensor.mt_aptos.core.datatypes import TaskAssignment, MinerResult, ValidatorScore, ValidatorInfo, MinerInfo
+    from moderntensor_aptos.mt_core.consensus.node import ValidatorNode
+    from moderntensor_aptos.mt_core.core.datatypes import (
+        TaskAssignment,
+        MinerResult,
+        ValidatorScore,
+        ValidatorInfo,
+        MinerInfo,
+    )
+
     # Import successful, use real classes
     USING_MOCK_CLASSES = False
     logging.info("✅ Successfully imported ValidatorNode and core datatypes from SDK")
 except ImportError as e:
-    logging.error(f"Could not import ValidatorNode or core datatypes from the SDK: {e}. "
-                  "Ensure the 'moderntensor' SDK is installed.")
+    logging.error(
+        f"Could not import ValidatorNode or core datatypes from the SDK: {e}. "
+        "Ensure the 'moderntensor' SDK is installed."
+    )
+
     # Lớp giả để tránh lỗi nếu import thất bại
     class ValidatorNode:
         def __init__(self, *args, **kwargs):
-             self.validator_scores = {}
-             self.results_received = defaultdict(list)
-             self.tasks_sent = {}
-             self.info = type('obj', (object,), {'uid': 'fake_validator_uid'})()
-        def _create_task_data(self, miner_uid: str) -> Any: return None
+            self.validator_scores = {}
+            self.results_received = defaultdict(list)
+            self.tasks_sent = {}
+            self.info = type("obj", (object,), {"uid": "fake_validator_uid"})()
+
+        def _create_task_data(self, miner_uid: str) -> Any:
+            return None
+
         # Xóa score_miner_results giả lập
-    class TaskAssignment: 
+
+    class TaskAssignment:
         def __init__(self, task_id, miner_uid, task_data):
             self.task_id = task_id
             self.miner_uid = miner_uid
             self.task_data = task_data
-    class MinerResult: 
+
+    class MinerResult:
         def __init__(self, task_id, miner_uid, result_data):
             self.task_id = task_id
             self.miner_uid = miner_uid
             self.result_data = result_data
-    class ValidatorScore: pass
-    class ValidatorInfo: 
+
+    class ValidatorScore:
+        pass
+
+    class ValidatorInfo:
         def __init__(self, uid, **kwargs):
             self.uid = uid
-    class MinerInfo: 
+
+    class MinerInfo:
         def __init__(self, uid, **kwargs):
             self.uid = uid
+
     USING_MOCK_CLASSES = True
 
 # Import từ các module trong subnet này
@@ -54,7 +74,10 @@ try:
     from .scoring.clip_scorer import calculate_clip_score
 except ImportError:
     logging.error("Could not import scoring functions from .scoring.clip_scorer.")
-    def calculate_clip_score(*args, **kwargs) -> float: return 0.0
+
+    def calculate_clip_score(*args, **kwargs) -> float:
+        return 0.0
+
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +94,7 @@ DEFAULT_PROMPTS = [
     "A tranquil zen garden with raked sand and stones.",
 ]
 
+
 class Subnet1Validator(ValidatorNode):
     """
     Validator cho Subnet 1 (Image Generation).
@@ -80,14 +104,16 @@ class Subnet1Validator(ValidatorNode):
     def __init__(self, *args, **kwargs):
         """Khởi tạo ValidatorNode và các thuộc tính riêng của Subnet 1."""
         # Extract api_port if provided
-        self.api_port = kwargs.pop('api_port', None)
-        
+        self.api_port = kwargs.pop("api_port", None)
+
         super().__init__(*args, **kwargs)
-        
+
         # Set reference to self in core for subnet-specific scoring access
         self.core.validator_instance = self
-        
-        logger.info(f"✨ [bold]Subnet1Validator[/] initialized for UID: [cyan]{self.info.uid[:10]}...[/]")
+
+        logger.info(
+            f"✨ [bold]Subnet1Validator[/] initialized for UID: [cyan]{self.info.uid[:10]}...[/]"
+        )
         # Thêm các khởi tạo khác nếu cần, ví dụ:
         # self.image_generation_model = self._load_model()
         # self.clip_scorer = self._load_clip_scorer()
@@ -106,16 +132,20 @@ class Subnet1Validator(ValidatorNode):
                  Cấu trúc này cần được miner hiểu.
         """
         selected_prompt = random.choice(DEFAULT_PROMPTS)
-        logger.debug(f"Creating task for miner {miner_uid} with prompt: '{selected_prompt}'")
+        logger.debug(
+            f"Creating task for miner {miner_uid} with prompt: '{selected_prompt}'"
+        )
 
         # Lấy API endpoint của chính validator này từ self.info
         # Cần đảm bảo self.info và self.info.api_endpoint đã được khởi tạo đúng
-        origin_validator_endpoint = getattr(self.info, 'api_endpoint', None)
+        origin_validator_endpoint = getattr(self.info, "api_endpoint", None)
         if not origin_validator_endpoint:
-             # Xử lý trường hợp endpoint không có sẵn (quan trọng)
-             logger.error(f"Validator {getattr(self.info, 'uid', 'UNKNOWN')} has no api_endpoint configured in self.info. Cannot create task properly.")
-             # Có thể trả về None hoặc raise lỗi để ngăn gửi task không đúng
-             return None # Hoặc raise ValueError("Validator endpoint missing")
+            # Xử lý trường hợp endpoint không có sẵn (quan trọng)
+            logger.error(
+                f"Validator {getattr(self.info, 'uid', 'UNKNOWN')} has no api_endpoint configured in self.info. Cannot create task properly."
+            )
+            # Có thể trả về None hoặc raise lỗi để ngăn gửi task không đúng
+            return None  # Hoặc raise ValueError("Validator endpoint missing")
 
         # Tạo deadline ví dụ (ví dụ: 5 phút kể từ bây giờ)
         now = datetime.datetime.now(datetime.timezone.utc)
@@ -129,10 +159,10 @@ class Subnet1Validator(ValidatorNode):
         # Miner sẽ cần đọc 'description' để lấy prompt
         # Miner sẽ cần đọc 'validator_endpoint' để biết gửi kết quả về đâu
         return {
-            "description": selected_prompt, # Prompt chính là description của task
+            "description": selected_prompt,  # Prompt chính là description của task
             "deadline": deadline_str,
             "priority": priority_level,
-            "validator_endpoint": origin_validator_endpoint # <<<--- THÊM DÒNG NÀY
+            "validator_endpoint": origin_validator_endpoint,  # <<<--- THÊM DÒNG NÀY
         }
 
     # --- Restore the correct override method for scoring ---
@@ -149,28 +179,36 @@ class Subnet1Validator(ValidatorNode):
             Điểm số float từ 0.0 đến 1.0.
         """
         logger.debug(f"💯 Scoring result via _score_individual_result...")
-        score = 0.0 # Default score
+        score = 0.0  # Default score
         start_score_time = time.time()
         try:
             # 1. Extract prompt and base64 image
             if not isinstance(task_data, dict) or "description" not in task_data:
-                 logger.warning(f"Scoring failed: Task data is not a dict or missing 'description'. Task data: {str(task_data)[:100]}...")
-                 return 0.0
+                logger.warning(
+                    f"Scoring failed: Task data is not a dict or missing 'description'. Task data: {str(task_data)[:100]}..."
+                )
+                return 0.0
             original_prompt = task_data["description"]
 
             if not isinstance(result_data, dict):
-                logger.warning(f"Scoring failed: Received result_data is not a dictionary. Data: {str(result_data)[:100]}...")
+                logger.warning(
+                    f"Scoring failed: Received result_data is not a dictionary. Data: {str(result_data)[:100]}..."
+                )
                 return 0.0
             image_base64 = result_data.get("output_description")
             reported_error = result_data.get("error_details")
-            processing_time_ms = result_data.get("processing_time_ms", 0) # Optional
+            processing_time_ms = result_data.get("processing_time_ms", 0)  # Optional
 
             # 2. Check for errors or missing image
             if reported_error:
-                logger.warning(f"Miner reported an error: '{reported_error}'. Assigning score 0.")
+                logger.warning(
+                    f"Miner reported an error: '{reported_error}'. Assigning score 0."
+                )
                 return 0.0
             if not image_base64 or not isinstance(image_base64, str):
-                logger.warning(f"No valid image data (base64 string) found in result_data. Assigning score 0. Data: {str(result_data)[:100]}...")
+                logger.warning(
+                    f"No valid image data (base64 string) found in result_data. Assigning score 0. Data: {str(result_data)[:100]}..."
+                )
                 return 0.0
 
             # 3. Decode image and Save it
@@ -190,137 +228,98 @@ class Subnet1Validator(ValidatorNode):
                         f.write(image_bytes)
                     logger.info(f"   Saved image result to: {filename}")
                 except OSError as file_err:
-                    logger.error(f"   Error saving image file to {filename}: {file_err}")
+                    logger.error(
+                        f"   Error saving image file to {filename}: {file_err}"
+                    )
                 except Exception as e:
                     logger.exception(f"   Unexpected error saving image: {e}")
                 # --- End: Save Image Logic ---
 
             except (binascii.Error, ValueError, TypeError) as decode_err:
-                 logger.error(f"Scoring failed: Invalid base64 data received. Error: {decode_err}. Assigning score 0.")
-                 return 0.0 # Return 0 if decode fails
+                logger.error(
+                    f"Scoring failed: Invalid base64 data received. Error: {decode_err}. Assigning score 0."
+                )
+                return 0.0  # Return 0 if decode fails
 
-            # 4. Calculate the actual score using CLIP
-            try:
-                score = calculate_clip_score(prompt=original_prompt, image_bytes=image_bytes)
-                score = max(0.0, min(1.0, score)) # Ensure score is [0, 1]
-                logger.info(f"   Calculated score using CLIP: [bold yellow]{score:.4f}[/] (Processing: {processing_time_ms}ms)")
-            except ImportError:
-                 logger.error("calculate_clip_score function is not available. Assigning score 0.")
-                 score = 0.0
-            except Exception as clip_err:
-                logger.exception(f"Error during CLIP score calculation: {clip_err}. Assigning score 0.")
-                score = 0.0
+            # 4. Calculate CLIP Score
+            score = calculate_clip_score(image_bytes, original_prompt)
+            # Ensure score is within valid range
+            score = max(0.0, min(1.0, score))
 
-            # Return the calculated score
-            scoring_duration = time.time() - start_score_time
-            logger.debug(f"🏁 Finished scoring process in {scoring_duration:.4f}s. Final score: [bold yellow]{score:.4f}[/]")
-            return score
+            logger.info(
+                f"   📊 CLIP Score: {score:.4f} for prompt: '{original_prompt[:50]}...'"
+            )
 
         except Exception as e:
-            logger.exception(f"💥 Unexpected error during scoring preparation: {e}. Assigning score 0.")
-            return 0.0
+            logger.exception(f"Scoring failed with exception: {e}")
+            score = 0.0
 
-    # --- KHÔNG CÒN PHƯƠNG THỨC score_miner_results Ở ĐÂY ---
+        scoring_duration = time.time() - start_score_time
+        logger.debug(
+            f"💯 Scoring completed in {scoring_duration:.3f}s, score: {score:.4f}"
+        )
+        return score
 
-    # Các phương thức khác của ValidatorNode được kế thừa và sử dụng logic mới.
-
+    # --- 2. Override phương thức xử lý kết quả ---
     def _should_process_result(self, result: MinerResult) -> bool:
-        """Kiểm tra xem kết quả từ miner có hợp lệ để xử lý không."""
-        logger.debug(f"🕵️ Checking validity of result for task '{result.task_id}' from miner '{result.miner_uid[:10]}...'")
-        # Kiểm tra cấu trúc result_data mới
-        if not isinstance(result.result_data, dict) or "output_description" not in result.result_data:
-            logger.warning(f"⚠️ Invalid result format for task '{result.task_id}' from miner '{result.miner_uid[:10]}...'. Missing 'output_description' in result_data.")
-            return False
-        logger.debug(f"✅ Result for task '{result.task_id}' seems valid structure-wise.")
+        """
+        (Override) Xác định có nên xử lý kết quả này không.
+        """
+        # Implement any custom logic here
+        # For now, process all results
         return True
 
-    def _generate_task_assignment(self, miner: 'MinerInfo') -> Optional['TaskAssignment']:
-        """Tạo nhiệm vụ cụ thể cho miner (ví dụ: tạo prompt sinh ảnh)."""
-        # Tạo một task_id duy nhất
+    # --- 3. Override phương thức tạo Task Assignment ---
+    def _generate_task_assignment(
+        self, miner: "MinerInfo"
+    ) -> Optional["TaskAssignment"]:
+        """
+        (Override) Tạo task assignment cho miner.
+        """
         task_id = self._generate_unique_task_id(miner.uid)
-        logger.info(f"📝 Generating task '{task_id}' for miner '{miner.uid[:10]}...'")
+        task_data = self._create_task_data(miner.uid)
 
-        # Tạo task_data cụ thể cho Subnet 1 (ví dụ: prompt)
-        try:
-            prompt = self._generate_random_prompt()
-            # Create task_data dict with 'description' key for the prompt
-            # to match what the miner expects inside task_data
-            task_data = {"description": prompt}
-            logger.info(f"   Generated prompt: [italic green]'{prompt}'[/] for task '{task_id}'")
-
-            assignment = TaskAssignment(
-                task_id=task_id,
-                miner_uid=miner.uid,
-                task_data=task_data, # Assign the dict with 'description' key
-                # Ensure TaskModel used by validator logic populates correctly
-            )
-            return assignment
-        except Exception as e:
-            logger.exception(f"💥 Error generating task data for miner '{miner.uid[:10]}...': {e}")
+        if task_data is None:
+            logger.warning(f"Could not create task data for miner {miner.uid}")
             return None
 
-    def _generate_unique_task_id(self, miner_uid: str) -> str:
-        """Generate unique task ID for a miner."""
-        return f"task_{miner_uid[:8]}_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+        return TaskAssignment(task_id=task_id, miner_uid=miner.uid, task_data=task_data)
 
-    # --- Các hàm helper tùy chọn cho Subnet 1 --- 
+    # --- 4. Helper methods ---
+    def _generate_unique_task_id(self, miner_uid: str) -> str:
+        """Generate a unique task ID."""
+        timestamp = int(time.time() * 1000)
+        return f"task_{miner_uid[:8]}_{timestamp}"
 
     def _generate_random_prompt(self) -> str:
-        """Tạo prompt ngẫu nhiên cho nhiệm vụ sinh ảnh."""
-        prompts = [
-            "A photorealistic image of a cat wearing a wizard hat",
-            "A watercolor painting of a futuristic city skyline at sunset",
-            "A cute robot reading a book in a cozy library, digital art",
-            "Impressionist painting of a sunflower field under a stormy sky",
-            "A steaming cup of coffee on a wooden table, macro shot",
-            "Pencil sketch of an ancient dragon sleeping on a pile of gold",
-        ]
-        return random.choice(prompts)
+        """Generate a random prompt for testing."""
+        return random.choice(DEFAULT_PROMPTS)
 
-    # def _load_model(self):
-    #     """Tải model sinh ảnh (ví dụ: Stable Diffusion)."""
-    #     logger.info("Loading image generation model...")
-    #     # ... logic tải model ...
-    #     logger.info("Image generation model loaded.")
-    #     # return model
-
-    # def _load_clip_scorer(self):
-    #     """Tải model chấm điểm CLIP."""
-    #     logger.info("Loading CLIP scorer...")
-    #     # ... logic tải clip ...
-    #     logger.info("CLIP scorer loaded.")
-    #     # return scorer
-
-    # def _decode_image(self, base64_string):
-    #     """Giải mã ảnh từ chuỗi base64."""
-    #     # ... logic giải mã ...
-    #     # return image_object
-
-    # === Main run method for backward compatibility ===
+    # --- 5. Override run method nếu cần ---
     async def run(self):
         """
-        Main run method for backward compatibility.
-        
-        This method provides backward compatibility with existing validator scripts
-        that expect a run() method on the validator instance.
+        Main run loop cho validator.
         """
-        logger.info(f"🚀 Starting Subnet1Validator run method for UID: {self.info.uid}")
-        
+        logger.info(f"🚀 Starting Subnet1Validator for UID: {self.info.uid}")
         try:
-            # Use the new modular ValidatorNode interface with correct port
-            await self.start(api_port=self.api_port)
-            logger.info(f"✅ Subnet1Validator started successfully")
-            
-            # Run until interrupted
-            try:
-                while True:
-                    await asyncio.sleep(1)
-            except KeyboardInterrupt:
-                logger.info(f"👋 Subnet1Validator stopped by user")
-                
+            # Call parent run method
+            await super().run()
         except Exception as e:
-            logger.error(f"❌ Subnet1Validator run error: {e}")
+            logger.exception(f"Error in Subnet1Validator.run(): {e}")
             raise
-        finally:
-            await self.shutdown()
-            logger.info(f"🏁 Subnet1Validator run method finished")
+
+    # --- 6. Additional methods for subnet-specific functionality ---
+    def get_validator_stats(self) -> Dict[str, Any]:
+        """
+        Lấy thống kê của validator.
+        """
+        return {
+            "uid": self.info.uid,
+            "tasks_sent": len(self.tasks_sent),
+            "results_received": sum(
+                len(results) for results in self.results_received.values()
+            ),
+            "validator_scores": len(self.validator_scores),
+            "api_port": self.api_port,
+            "using_mock_classes": USING_MOCK_CLASSES,
+        }

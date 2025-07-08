@@ -14,12 +14,12 @@ from rich.prompt import Prompt, Confirm
 current_dir = Path(__file__).parent
 project_root = current_dir.parent
 sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(project_root / 'moderntensor'))
+sys.path.insert(0, str(project_root / 'moderntensor_aptos'))
 
 # --- Import required classes ---
 try:
-    from mt_aptos.account import Account
-    from mt_aptos.config.settings import Settings
+    from moderntensor_aptos.mt_core.account import Account
+    from moderntensor_aptos.mt_core.config.settings import Settings
     from aptos_sdk.async_client import FaucetClient, RestClient
     from dotenv import set_key
 except ImportError as e:

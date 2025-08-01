@@ -1,0 +1,12 @@
+{
+  "name": "subnet1_validator_003",
+  "type": "validator",
+  "address": "0x0469C6644c07F6e860Af368Af8104F8D8829a78e",
+  "private_key": "7e2c40ab431ddf141322ed93531e8e4b2cda01bb25aa947d297b680b635b715c",
+  "stake_amount": "0.08",
+  "compute_power": 12000,
+  "api_endpoint": "http://localhost:8003",
+  "subnet_id": 0,
+  "gas_reserve": "0.92",
+  "updated_for": "ultra_low_stake_contract"
+}

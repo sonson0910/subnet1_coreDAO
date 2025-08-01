@@ -1,0 +1,10 @@
+{
+  "validator_uid": "7375626e6574315f76616c696461746f725f303031",
+  "slot": 10054.0,
+  "phase": "consensus_scoring",
+  "timestamp": 1753938510.821439,
+  "extra_data": {
+    "flexible_join": true,
+    "scores_count": 0
+  }
+}

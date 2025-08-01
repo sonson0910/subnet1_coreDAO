@@ -1,0 +1,12 @@
+{
+  "name": "subnet1_miner_002",
+  "type": "miner",
+  "address": "0x16102CA8BEF74fb6214AF352989b664BF0e50498",
+  "private_key": "3ace434e2cd05cd0e614eb5d423cf04e4b925c17db9869e9c598851f88f52840",
+  "stake_amount": "0.05",
+  "compute_power": 8000,
+  "api_endpoint": "http://localhost:8102",
+  "subnet_id": 0,
+  "gas_reserve": "0.95",
+  "updated_for": "ultra_low_stake_contract"
+}

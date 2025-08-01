@@ -25,8 +25,8 @@ sys.path.insert(
 # --- Import required classes ---
 try:
     from subnet1.miner import Subnet1Miner
-    from moderntensor_aptos.mt_core.config.settings import settings as sdk_settings
-    from moderntensor_aptos.mt_core.account import Account
+    from mt_core.config.settings import settings as sdk_settings
+    from mt_core.account import Account
 except ImportError as e:
     print(f"❌ FATAL: Import Error: {e}")
     sys.exit(1)

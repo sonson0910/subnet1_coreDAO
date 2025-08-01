@@ -1,0 +1,14 @@
+{
+  "ultra_low_stake_contract": "0x3dACb0Ac7A913Fa94f383f7d6CF0a7BC2b5498DD",
+  "ready_for_registration": true,
+  "entities": {
+    "miners": 2,
+    "validators": 3,
+    "total": 5
+  },
+  "stake_requirements": {
+    "miner_stake": "0.05 CORE",
+    "validator_stake": "0.08 CORE",
+    "total_needed": "0.33999999999999997 CORE"
+  }
+}

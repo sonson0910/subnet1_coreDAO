@@ -1,0 +1,64 @@
+{
+  "contract_address": "0x3dACb0Ac7A913Fa94f383f7d6CF0a7BC2b5498DD",
+  "network": "core_testnet",
+  "chain_id": 1115,
+  "rpc_url": "https://rpc.test.btcs.network",
+  "contract_status": {
+    "is_paused": false,
+    "is_accessible": true
+  },
+  "entities": {
+    "miners": [
+      {
+        "address": "0xd89fBAbb72190ed22F012ADFC693ad974bAD3005",
+        "name": "subnet1_miner_001",
+        "stake_amount": "0.05",
+        "is_active": false,
+        "balance": "1.0"
+      },
+      {
+        "address": "0x16102CA8BEF74fb6214AF352989b664BF0e50498",
+        "name": "subnet1_miner_002",
+        "stake_amount": "0.05",
+        "is_active": false,
+        "balance": "1.0"
+      }
+    ],
+    "validators": [
+      {
+        "address": "0x25F3D6316017FDF7A4f4e54003b29212a198768f",
+        "name": "subnet1_validator_001",
+        "stake_amount": "0.08",
+        "is_active": false,
+        "balance": "1.0"
+      },
+      {
+        "address": "0x352516F491DFB3E6a55bFa9c58C551Ef10267dbB",
+        "name": "subnet1_validator_002",
+        "stake_amount": "0.08",
+        "is_active": false,
+        "balance": "1.0"
+      },
+      {
+        "address": "0x0469C6644c07F6e860Af368Af8104F8D8829a78e",
+        "name": "subnet1_validator_003",
+        "stake_amount": "0.08",
+        "is_active": false,
+        "balance": "1.0"
+      }
+    ]
+  },
+  "summary": {
+    "total_miners": 2,
+    "total_validators": 3,
+    "registered_miners": 0,
+    "registered_validators": 0,
+    "total_entities": 5
+  },
+  "integration_status": {
+    "web3_connection": true,
+    "contract_accessible": true,
+    "entities_loaded": true,
+    "ready_for_registration": true
+  }
+}

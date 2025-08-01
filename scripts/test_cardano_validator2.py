@@ -89,9 +89,9 @@ if env_path.exists():
 os.environ["ENV_FILE"] = str(project_root / "core_test_config.env")
 
 # Import after setting environment
-from moderntensor_aptos.mt_core.config.settings import settings
-from moderntensor_aptos.mt_core.account import Account
-from moderntensor_aptos.mt_core.async_client import ModernTensorCoreClient
+from mt_core.config.settings import settings
+from mt_core.account import Account
+from mt_core.async_client import ModernTensorCoreClient
 from subnet1.validator import Subnet1Validator
 
 
@@ -121,7 +121,7 @@ async def run_core_validator2():
         core_contract_address = settings.CORE_CONTRACT_ADDRESS
 
         # Create validator info
-        from moderntensor_aptos.mt_core.core.datatypes import ValidatorInfo
+        from mt_core.core.datatypes import ValidatorInfo
 
         validator_info = ValidatorInfo(
             uid="validator_2",

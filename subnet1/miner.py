@@ -1,6 +1,11 @@
 # File: subnet1/miner.py
 # Triển khai cụ thể cho Miner trong Subnet 1 (Image Generation)
 
+import sys
+import os
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../moderntensor_aptos"))
+
 import time
 import logging
 import traceback
@@ -20,10 +25,10 @@ import random
 try:
     # TaskModel và ResultModel định nghĩa cấu trúc dữ liệu API
     # BaseMiner cung cấp khung cơ bản cho server miner
-    from moderntensor_aptos.mt_core.network.server import BaseMiner, TaskModel, ResultModel
+    from mt_core.network.server import BaseMiner, TaskModel, ResultModel
 except ImportError:
     logging.error(
-        "Could not import BaseMiner, TaskModel, or ResultModel from moderntensor_aptos.mt_core.network.server. "
+        "Could not import BaseMiner, TaskModel, or ResultModel from mt_core.network.server. "
         "Make sure the moderntensor SDK is installed correctly."
     )
 
@@ -294,6 +299,7 @@ class Subnet1Miner(BaseMiner):
         logger.info(
             f"   ✅ Task {task.task_id} completed successfully in {total_duration:.2f}s"
         )
+
         return {
             "output_description": image_base64_string,
             "processing_time_ms": int(total_duration * 1000),
@@ -305,6 +311,9 @@ class Subnet1Miner(BaseMiner):
         """
         Xử lý task - gọi process_task và gửi kết quả.
         """
+        # Store validator endpoint for result submission
+        self.current_validator_endpoint = task.validator_endpoint
+
         try:
             # Process the task
             result_data = self.process_task(task)
@@ -331,6 +340,46 @@ class Subnet1Miner(BaseMiner):
                 },
             )
             self.submit_result(error_result)
+
+    def submit_result(self, result: ResultModel):
+        """
+        Submit result back to validator.
+        This method sends the result to the validator endpoint specified in the original task.
+        """
+        try:
+            result_dict = result.dict()
+
+            # Get validator endpoint from the current task or use default
+            target_validator_url = (
+                getattr(self, "current_validator_endpoint", None) or self.validator_url
+            )
+            if not target_validator_url:
+                logger.error(
+                    f"No validator URL found for task {result.task_id}. Cannot send result."
+                )
+                return
+
+            result_submit_url = (
+                f"{target_validator_url.rstrip('/')}/v1/miner/submit_result"
+            )
+
+            logger.debug(
+                f"Sending result for task {result.task_id} to {result_submit_url}"
+            )
+
+            response = requests.post(result_submit_url, json=result_dict, timeout=10)
+            response.raise_for_status()
+
+            logger.info(
+                f"✅ Result for task {result.task_id} sent successfully to validator"
+            )
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"❌ Error sending result for task {result.task_id}: {e}")
+        except Exception as e:
+            logger.exception(
+                f"❌ Unexpected error sending result for task {result.task_id}: {e}"
+            )
 
     def run(self):
         """

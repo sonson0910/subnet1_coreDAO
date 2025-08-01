@@ -1,0 +1,12 @@
+{
+  "validator_uid": "7375626e6574315f76616c696461746f725f303032",
+  "slot": 10228.0,
+  "phase": "consensus_scoring",
+  "timestamp": 1753974970.818521,
+  "extra_data": {
+    "scores": {
+      "7375626e6574315f6d696e65725f31": 0.0,
+      "ff85b418a988cd2f00725ae1307eef7d272a79c6bfd8c516b8cd82859ff406a7": 0.0
+    }
+  }
+}

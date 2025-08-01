@@ -1,3 +1,9 @@
 {
-  "last_completed_cycle": 12621
+  "current_cycle": 0,
+  "last_metagraph_update": 0,
+  "validators_info_count": 2,
+  "miners_info_count": 1,
+  "consensus_mode": "continuous",
+  "slot_aggregated_scores_count": 0,
+  "timestamp": 1753872963.2431219
 }

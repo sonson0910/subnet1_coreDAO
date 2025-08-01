@@ -1,0 +1,60 @@
+{
+  "network_stats": {
+    "total_miners": 2,
+    "total_validators": 2,
+    "total_staked": "260000000000000000",
+    "total_rewards": "0"
+  },
+  "subnet_0": {
+    "miners": [
+      "0xd89fBAbb72190ed22F012ADFC693ad974bAD3005"
+    ],
+    "validators": [
+      "0x25F3D6316017FDF7A4f4e54003b29212a198768f"
+    ],
+    "trust_scores": [
+      500000,
+      500000
+    ]
+  },
+  "entities": {
+    "0xd89fBAbb72190ed22F012ADFC693ad974bAD3005": {
+      "uid": "a160bb6da0dbf1050f48a0e26316c4d0288d7c812e88a06622c83c6ab9c0c219",
+      "subnet_uid": 0,
+      "stake": "50000000000000000",
+      "scaled_last_performance": 0,
+      "scaled_trust_score": 500000,
+      "accumulated_rewards": "0",
+      "last_update_time": 1753787159,
+      "performance_history_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "wallet_addr_hash": "0a32b2828a99025de8168062087ac416413359bcb98a6b4c5c07618591d47bb6",
+      "status": 1,
+      "registration_time": 1753787159,
+      "api_endpoint": "http://miner1-api.moderntensor.com"
+    },
+    "0x25F3D6316017FDF7A4f4e54003b29212a198768f": {
+      "uid": "b19e3828cf4604487f2424a0c92af8df9338c5fd2c77f2862757e03148cf4e0b",
+      "subnet_uid": 0,
+      "stake": "80000000000000000",
+      "scaled_last_performance": 0,
+      "scaled_trust_score": 1000000,
+      "accumulated_rewards": "0",
+      "last_update_time": 1753787174,
+      "performance_history_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "wallet_addr_hash": "6d4e2e68c2380a7b0f5825d81c1fe817d123c44153962cd0a96a75509dcbd0c9",
+      "status": 1,
+      "registration_time": 1753787174,
+      "api_endpoint": "http://validator1-api.moderntensor.com"
+    }
+  },
+  "contract_info": {
+    "address": "0xaef80dF33B6F9d0c9Fa9BA6F960eb8227fF182f8",
+    "version": "2.0 - Bittensor Edition",
+    "features": [
+      "UID-based indexing",
+      "Trust scores",
+      "Subnet management",
+      "Metagraph compatibility"
+    ]
+  }
+}

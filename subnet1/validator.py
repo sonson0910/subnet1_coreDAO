@@ -1,21 +1,43 @@
+import sys
+import os
+
+# Add paths to find mt_core modules with absolute path
+current_dir = os.path.dirname(__file__)  # subnet1_aptos/subnet1/
+parent_dir = os.path.dirname(current_dir)  # subnet1_aptos/
+project_root = os.path.dirname(parent_dir)  # moderntensor_core/
+sdk_path = os.path.join(project_root, "moderntensor_aptos")
+abs_sdk_path = os.path.abspath(sdk_path)
+sys.path.insert(0, abs_sdk_path)
+
+# SDK path configured successfully
+
+# Also add parent for relative imports
+sys.path.insert(0, parent_dir)
+
 import logging
 import random
 import base64
 import time
 import datetime
+import threading
+import uvicorn
+import json
 from typing import Any, Dict, List, Optional
 from collections import defaultdict
 import os
 import binascii
 import uuid
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 import sys
 import asyncio
 
 # Import từ SDK Moderntensor (đã cài đặt)
 try:
-    from moderntensor_aptos.mt_core.consensus.node import ValidatorNode
-    from moderntensor_aptos.mt_core.core.datatypes import (
+    from mt_core.consensus.validator_node_refactored import ValidatorNode
+    from mt_core.core.datatypes import (
         TaskAssignment,
+        TaskModel,
         MinerResult,
         ValidatorScore,
         ValidatorInfo,
@@ -30,6 +52,64 @@ except ImportError as e:
         f"Could not import ValidatorNode or core datatypes from the SDK: {e}. "
         "Ensure the 'moderntensor' SDK is installed."
     )
+
+    # Create mock classes to prevent NameError
+    class ValidatorNode:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class TaskAssignment:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class TaskModel:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class MinerResult:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class ValidatorScore:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class ValidatorInfo:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class MinerInfo:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    # Set flag
+    USING_MOCK_CLASSES = True
+
+# Import Flexible Consensus SDK
+try:
+    from .flexible_consensus_sdk import (
+        FlexibleConsensusSDK,
+        FlexibleConsensusConfig,
+        FlexibleValidatorWrapper,
+        create_flexible_validator,
+        enable_flexible_consensus_for_validator,
+        run_flexible_consensus_simple,
+    )
+
+    FLEXIBLE_CONSENSUS_AVAILABLE = True
+    logging.info("✅ Flexible Consensus SDK imported successfully")
+except ImportError as e:
+    FLEXIBLE_CONSENSUS_AVAILABLE = False
+    logging.warning(f"⚠️ Flexible Consensus SDK not available: {e}")
+
+    # Create mock classes to prevent errors
+    class FlexibleConsensusSDK:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class FlexibleValidatorWrapper:
+        def __init__(self, *args, **kwargs):
+            pass
 
     # Lớp giả để tránh lỗi nếu import thất bại
     class ValidatorNode:
@@ -101,22 +181,48 @@ class Subnet1Validator(ValidatorNode):
     Kế thừa ValidatorNode và triển khai logic tạo task, chấm điểm ảnh.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self,
+        validator_info,
+        core_client,
+        account,
+        contract_address,
+        api_port=8001,
+        host="0.0.0.0",
+        enable_flexible_consensus=True,
+        flexible_mode="balanced",
+        **kwargs,
+    ):
         """Khởi tạo ValidatorNode và các thuộc tính riêng của Subnet 1."""
-        # Extract api_port if provided
-        self.api_port = kwargs.pop("api_port", None)
 
-        super().__init__(*args, **kwargs)
+        # Store API configuration
+        self.api_port = api_port
+        self.host = host
+
+        # Initialize ValidatorNode with required parameters including flexible consensus
+        super().__init__(
+            validator_info=validator_info,
+            core_client=core_client,
+            account=account,
+            contract_address=contract_address,
+            api_port=api_port,  # Explicitly pass api_port to parent
+            enable_flexible_consensus=enable_flexible_consensus,  # Pass to SDK
+            flexible_mode=flexible_mode,  # Pass to SDK
+            **kwargs,
+        )
 
         # Set reference to self in core for subnet-specific scoring access
         self.core.validator_instance = self
 
+        # Track flexible consensus status from SDK
+        self.subnet_flexible_mode = flexible_mode
+
         logger.info(
-            f"✨ [bold]Subnet1Validator[/] initialized for UID: [cyan]{self.info.uid[:10]}...[/]"
+            f"✨ [bold]Subnet1Validator[/] initialized for UID: [cyan]{self.core.info.uid[:10]}...[/]"
+            f" (Flexible Consensus: {'✅' if self.flexible_consensus_enabled else '❌'})"
         )
-        # Thêm các khởi tạo khác nếu cần, ví dụ:
-        # self.image_generation_model = self._load_model()
-        # self.clip_scorer = self._load_clip_scorer()
+        # Note: FastAPI server is already handled by ValidatorNodeNetwork
+        # No need to create separate app here
 
     # --- 1. Override phương thức tạo Task Data ---
     def _create_task_data(self, miner_uid: str) -> Any:
@@ -211,9 +317,15 @@ class Subnet1Validator(ValidatorNode):
                 )
                 return 0.0
 
+            # Log base64 string length for debugging
+            logger.debug(f"Received base64 image data: {len(image_base64)} characters")
+
             # 3. Decode image and Save it
             try:
-                image_bytes = base64.b64decode(image_base64)
+                # Import the safe base64 decoder from clip_scorer
+                from .scoring.clip_scorer import _safe_base64_decode
+
+                image_bytes = _safe_base64_decode(image_base64)
 
                 # --- Start: Save Image Logic ---
                 output_dir = "result_image"
@@ -242,7 +354,9 @@ class Subnet1Validator(ValidatorNode):
                 return 0.0  # Return 0 if decode fails
 
             # 4. Calculate CLIP Score
-            score = calculate_clip_score(image_bytes, original_prompt)
+            score = calculate_clip_score(
+                prompt=original_prompt, image_bytes=image_bytes
+            )
             # Ensure score is within valid range
             score = max(0.0, min(1.0, score))
 
@@ -295,18 +409,53 @@ class Subnet1Validator(ValidatorNode):
         """Generate a random prompt for testing."""
         return random.choice(DEFAULT_PROMPTS)
 
-    # --- 5. Override run method nếu cần ---
-    async def run(self):
+    # --- 5. Use parent ValidatorNode run method ---
+    # Note: ValidatorNodeNetwork already provides FastAPI server with:
+    # - /health endpoint
+    # - /api/v1/consensus/result/{cycle_num} endpoint
+    # - /api/v1/validator/status endpoint
+    # No need to override run() method
+
+    # === FLEXIBLE CONSENSUS METHODS (Delegated to SDK) ===
+
+    def get_flexible_consensus_status(self) -> Dict[str, Any]:
+        """Get flexible consensus status and metrics from SDK"""
+        # Delegate to SDK's implementation
+        if hasattr(super(), "get_flexible_consensus_status"):
+            status = super().get_flexible_consensus_status()
+            status["subnet"] = "subnet1"
+            status["subnet_mode"] = self.subnet_flexible_mode
+            return status
+        else:
+            return {
+                "validator_uid": self.core.info.uid,
+                "flexible_consensus_enabled": getattr(
+                    self, "flexible_consensus_enabled", False
+                ),
+                "subnet": "subnet1",
+                "subnet_mode": self.subnet_flexible_mode,
+                "message": "SDK flexible consensus not available",
+            }
+
+    async def run_consensus_cycle_flexible(self, slot: Optional[int] = None) -> bool:
         """
-        Main run loop cho validator.
+        Run a consensus cycle using SDK's flexible consensus.
+
+        Args:
+            slot: Optional slot number (auto-detected if None)
+
+        Returns:
+            True if successful, False otherwise
         """
-        logger.info(f"🚀 Starting Subnet1Validator for UID: {self.info.uid}")
-        try:
-            # Call parent run method
-            await super().run()
-        except Exception as e:
-            logger.exception(f"Error in Subnet1Validator.run(): {e}")
-            raise
+        # Use SDK's flexible consensus implementation
+        if hasattr(super(), "run_consensus_cycle_flexible"):
+            logger.info(
+                f"🚀 Running SDK flexible consensus cycle for Subnet1 validator"
+            )
+            return await super().run_consensus_cycle_flexible(slot)
+        else:
+            logger.warning("⚠️ SDK flexible consensus not available")
+            return False
 
     # --- 6. Additional methods for subnet-specific functionality ---
     def get_validator_stats(self) -> Dict[str, Any]:
@@ -323,3 +472,18 @@ class Subnet1Validator(ValidatorNode):
             "api_port": self.api_port,
             "using_mock_classes": USING_MOCK_CLASSES,
         }
+
+    async def stop(self):
+        """
+        Stop the validator gracefully.
+        Delegates to parent ValidatorNode's shutdown method.
+        """
+        logger.info(f"🛑 Stopping Subnet1Validator on port {self.api_port}")
+        try:
+            if hasattr(super(), "shutdown"):
+                await super().shutdown()
+            else:
+                logger.warning("⚠️ Parent ValidatorNode has no shutdown method")
+        except Exception as e:
+            logger.error(f"❌ Error during validator shutdown: {e}")
+        logger.info("✅ Subnet1Validator stopped successfully")

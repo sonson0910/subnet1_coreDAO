@@ -1,0 +1,9 @@
+{
+  "validator_uid": "7375626e6574315f76616c696461746f725f303031",
+  "slot": 10110.0,
+  "phase": "task_execution",
+  "timestamp": 1753950476.883492,
+  "extra_data": {
+    "flexible_join": true
+  }
+}

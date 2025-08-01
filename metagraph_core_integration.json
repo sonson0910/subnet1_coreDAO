@@ -1,0 +1,32 @@
+{
+  "contract_address": "0x3dACb0Ac7A913Fa94f383f7d6CF0a7BC2b5498DD",
+  "network": "core_testnet",
+  "chain_id": 1115,
+  "rpc_url": "https://rpc.test.btcs.network",
+  "entities": {
+    "miners": 2,
+    "validators": 3
+  },
+  "addresses": {
+    "miners": [
+      "0xd89fBAbb72190ed22F012ADFC693ad974bAD3005",
+      "0x16102CA8BEF74fb6214AF352989b664BF0e50498"
+    ],
+    "validators": [
+      "0x25F3D6316017FDF7A4f4e54003b29212a198768f",
+      "0x352516F491DFB3E6a55bFa9c58C551Ef10267dbB",
+      "0x0469C6644c07F6e860Af368Af8104F8D8829a78e"
+    ]
+  },
+  "stake_requirements": {
+    "miner_stake": "0.05",
+    "validator_stake": "0.08"
+  },
+  "contract_functions": {
+    "getMinerInfo": "address -> (bool,uint256,uint256,uint64)",
+    "getValidatorInfo": "address -> (bool,uint256,uint256,uint64)",
+    "getNetworkStats": "() -> (uint256,uint256,uint256,uint256)",
+    "registerMiner": "(uint256,uint256,uint64)",
+    "registerValidator": "(uint256,uint256,uint64)"
+  }
+}

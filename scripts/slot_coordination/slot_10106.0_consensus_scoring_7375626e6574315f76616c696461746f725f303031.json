@@ -1,0 +1,34 @@
+{
+  "validator_uid": "7375626e6574315f76616c696461746f725f303031",
+  "slot": 10106.0,
+  "phase": "consensus_scoring",
+  "timestamp": 1753949802.33663,
+  "extra_data": {
+    "scores": [
+      {
+        "task_id": "averaged_slot_10106.0_ff85b418a988cd2f00725ae1307eef7d272a79c6bfd8c516b8cd82859ff406a7",
+        "miner_uid": "ff85b418a988cd2f00725ae1307eef7d272a79c6bfd8c516b8cd82859ff406a7",
+        "validator_uid": "7375626e6574315f76616c696461746f725f303031",
+        "score": 0.0,
+        "deviation": null,
+        "timestamp": 1753949493.175049
+      },
+      {
+        "task_id": "averaged_slot_10106.0_7375626e6574315f6d696e65725f31",
+        "miner_uid": "7375626e6574315f6d696e65725f31",
+        "validator_uid": "7375626e6574315f76616c696461746f725f303031",
+        "score": 0.65673828125,
+        "deviation": null,
+        "timestamp": 1753949493.175065
+      },
+      {
+        "task_id": "slot_10106.0_r2_ff85b418a988cd2f00725ae1307eef7d272a79c6bfd8c516b8cd82859ff406a7_1753949484",
+        "miner_uid": "7375626e6574315f6d696e65725f31",
+        "validator_uid": "7375626e6574315f76616c696461746f725f303031",
+        "score": 0.65673828125,
+        "deviation": null,
+        "timestamp": 1753949496.800611
+      }
+    ]
+  }
+}

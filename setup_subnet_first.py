@@ -22,7 +22,7 @@ def main():
     contract_address = os.getenv("CORE_CONTRACT_ADDRESS")
 
     # Load contract ABI
-    abi_path = "../moderntensor_aptos/mt_core/smartcontract/artifacts/contracts/ModernTensorAI_v2_Bittensor.sol/ModernTensorAI_v2_Bittensor.json"
+    abi_path = "../moderntensor_aptos/mt_core/smartcontract/artifacts/contracts/ModernTensor.sol/ModernTensor.json"
     with open(abi_path, "r") as f:
         contract_data = json.load(f)
         contract_abi = contract_data["abi"]

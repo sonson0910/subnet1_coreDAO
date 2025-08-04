@@ -34,6 +34,7 @@ import asyncio
 
 # Import từ SDK Moderntensor (đã cài đặt)
 try:
+    from mt_core.consensus.validator_node_core import ValidatorNodeCore
     from mt_core.consensus.validator_node_refactored import ValidatorNode
     from mt_core.core.datatypes import (
         TaskAssignment,

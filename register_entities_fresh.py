@@ -54,8 +54,8 @@ def register_entities_fresh():
         / "smartcontract"
         / "artifacts"
         / "contracts"
-        / "ModernTensorAI_v2_Bittensor.sol"
-        / "ModernTensorAI_v2_Bittensor.json"
+        / "ModernTensorAI_Optimized.sol"
+        / "ModernTensorAI_Optimized.json"
     )
 
     with open(contract_artifacts_path, "r") as f:

@@ -1,291 +1,254 @@
 #!/usr/bin/env python3
 """
-Register remaining entities: Miner 2, Validator 2, Validator 3
+Register remaining entities with correct parameters
 """
 
-import sys
-import os
+import json
 from pathlib import Path
 from web3 import Web3
-from dotenv import load_dotenv
-import json
-import time
+from eth_account import Account
 
-# Load environment
-load_dotenv()
 
 def register_remaining_entities():
-    """Register the remaining entities to complete the network"""
     print("🚀 REGISTERING REMAINING ENTITIES")
-    print("=" * 50)
-    print("Target: 2 Miners + 3 Validators")
-    print()
-    
-    # Configuration
-    rpc_url = os.getenv("CORE_NODE_URL", "https://rpc.test.btcs.network")
-    contract_address = os.getenv("CORE_CONTRACT_ADDRESS")
-    core_token_address = os.getenv("CORE_TOKEN_ADDRESS")
-    
-    print(f"🌐 RPC URL: {rpc_url}")
-    print(f"📝 Contract: {contract_address}")
-    print(f"💰 CORE Token: {core_token_address}")
-    print()
-    
-    # Connect to Core
+    print("=" * 45)
+
+    # Configuration - using working parameters
+    contract_address = "0x594fc12B3e3AB824537b947765dd9409DAAAa143"
+    core_token_address = "0x7B74e4868c8C500D6143CEa53a5d2F94e94c7637"
+    rpc_url = "https://rpc.test.btcs.network"
+
+    # WORKING PARAMETERS (discovered from successful registration)
+    subnet_id = 1  # Use subnet 1
+    stake_amount = int(0.01 * 10**18)  # 0.01 CORE minimum
+
+    print(
+        f"🎯 Using: Subnet {subnet_id}, Stake {Web3.from_wei(stake_amount, 'ether')} CORE"
+    )
+
+    # Initialize Web3
     w3 = Web3(Web3.HTTPProvider(rpc_url))
-    
-    # Add POA middleware
+
+    # Load contract ABI
     try:
-        from web3.middleware import ExtraDataToPOAMiddleware
-        w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
-    except ImportError:
-        try:
-            from web3.middleware import geth_poa_middleware
-            w3.middleware_onion.inject(geth_poa_middleware, layer=0)
-        except ImportError:
-            pass
-    
-    print(f"✅ Connected to Core: {w3.is_connected()}")
-    
-    # Contract ABIs
+        abi_path = "../moderntensor_aptos/mt_core/smartcontract/artifacts/contracts/ModernTensor.sol/ModernTensor.json"
+        with open(abi_path, "r") as f:
+            contract_data = json.load(f)
+            contract_abi = contract_data["abi"]
+    except Exception as e:
+        print(f"❌ Error loading contract ABI: {e}")
+        return False
+
+    # Create contract instance
+    contract = w3.eth.contract(address=contract_address, abi=contract_abi)
+    print("✅ Contract loaded")
+
+    # ERC20 ABI for approval
     erc20_abi = [
         {
-            "name": "transfer",
-            "type": "function",
-            "inputs": [{"name": "to", "type": "address"}, {"name": "amount", "type": "uint256"}],
-            "outputs": [{"name": "", "type": "bool"}],
-            "stateMutability": "nonpayable"
-        },
-        {
-            "name": "balanceOf",
-            "type": "function",
-            "inputs": [{"name": "account", "type": "address"}],
-            "outputs": [{"name": "", "type": "uint256"}],
-            "stateMutability": "view"
-        },
-        {
+            "constant": False,
+            "inputs": [
+                {"name": "_spender", "type": "address"},
+                {"name": "_value", "type": "uint256"},
+            ],
             "name": "approve",
-            "type": "function",
-            "inputs": [{"name": "spender", "type": "address"}, {"name": "amount", "type": "uint256"}],
             "outputs": [{"name": "", "type": "bool"}],
-            "stateMutability": "nonpayable"
+            "type": "function",
         }
     ]
-    
-    contract_abi = [
-        {
-            "name": "registerMiner",
-            "type": "function",
-            "inputs": [
-                {"name": "subnetId", "type": "uint64"},
-                {"name": "coreStake", "type": "uint256"},
-                {"name": "btcStake", "type": "uint256"},
-                {"name": "apiEndpoint", "type": "string"}
-            ],
-            "outputs": [],
-            "stateMutability": "payable"
-        },
-        {
-            "name": "registerValidator",
-            "type": "function",
-            "inputs": [
-                {"name": "subnetId", "type": "uint64"},
-                {"name": "coreStake", "type": "uint256"},
-                {"name": "btcStake", "type": "uint256"},
-                {"name": "apiEndpoint", "type": "string"}
-            ],
-            "outputs": [],
-            "stateMutability": "payable"
-        },
-        {
-            "name": "getNetworkStats",
-            "type": "function",
-            "inputs": [],
-            "outputs": [
-                {"name": "totalMiners", "type": "uint256"},
-                {"name": "totalValidators", "type": "uint256"},
-                {"name": "totalStaked", "type": "uint256"},
-                {"name": "totalRewards", "type": "uint256"}
-            ],
-            "stateMutability": "view"
-        }
-    ]
-    
-    # Create contract instances
     core_token = w3.eth.contract(address=core_token_address, abi=erc20_abi)
-    main_contract = w3.eth.contract(address=contract_address, abi=contract_abi)
-    
-    # Get deployer account
-    deployer_private_key = "0xa07b6e0db803f9a21ffd1001c76b0aa0b313aaba8faab8c771af47301c4452b4"
-    deployer_account = w3.eth.account.from_key(deployer_private_key)
-    deployer_address = deployer_account.address
-    
-    print(f"👤 Deployer: {deployer_address}")
-    
-    # Check current network state
-    print(f"\n📊 CURRENT NETWORK STATE:")
-    try:
-        network_stats = main_contract.functions.getNetworkStats().call()
-        print(f"  👥 Current Miners: {network_stats[0]}")
-        print(f"  🛡️ Current Validators: {network_stats[1]}")
-        print(f"  💰 Total Staked: {Web3.from_wei(network_stats[2], 'ether')} CORE")
-    except Exception as e:
-        print(f"  ❌ Error getting stats: {e}")
-    
-    # Entities to register (remaining ones)
-    remaining_entities = [
-        ("Miner 2", os.getenv("MINER_2_ADDRESS"), os.getenv("MINER_2_PRIVATE_KEY"), "miner", "0.05"),
-        ("Validator 2", os.getenv("VALIDATOR_2_ADDRESS"), os.getenv("VALIDATOR_2_PRIVATE_KEY"), "validator", "0.08"),
-        ("Validator 3", os.getenv("VALIDATOR_3_ADDRESS", "0x352516F491DFB3E6a55bFa9c58C551Ef10267dbB"), os.getenv("VALIDATOR_3_PRIVATE_KEY", "df51093c674459eb0a5cc8a273418061fe4d7ca189bd84b74f478271714e0920"), "validator", "0.08")
-    ]
-    
-    print(f"\n🎯 ENTITIES TO REGISTER:")
-    for name, address, private_key, entity_type, stake in remaining_entities:
-        if address and private_key:
-            print(f"  ✅ {name}: {address} ({entity_type}, {stake} CORE)")
-        else:
-            print(f"  ❌ {name}: Missing config")
-    
-    # Step 1: Transfer CORE tokens to entities
-    print(f"\n💰 TRANSFERRING CORE TOKENS...")
-    for name, address, private_key, entity_type, stake_amount in remaining_entities:
-        if not address or not private_key:
-            print(f"  ⏭️ Skipping {name} - missing config")
-            continue
-            
-        stake_wei = w3.to_wei(stake_amount, 'ether')
-        transfer_amount = stake_wei * 2  # Transfer 2x needed
-        
-        print(f"\n🔄 Transferring to {name}...")
-        try:
-            # Build transfer transaction
-            transfer_txn = core_token.functions.transfer(
-                address, transfer_amount
-            ).build_transaction({
-                'from': deployer_address,
-                'gas': 100000,
-                'gasPrice': w3.eth.gas_price,
-                'nonce': w3.eth.get_transaction_count(deployer_address)
-            })
-            
-            # Sign and send
-            signed_txn = w3.eth.account.sign_transaction(transfer_txn, deployer_private_key)
-            tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
-            receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-            
-            if receipt.status == 1:
-                print(f"  ✅ Transferred {Web3.from_wei(transfer_amount, 'ether')} CORE to {name}")
-            else:
-                print(f"  ❌ Transfer failed for {name}")
-                
-        except Exception as e:
-            print(f"  ❌ Transfer error for {name}: {e}")
-        
-        time.sleep(2)
-    
-    # Step 2: Register entities
-    print(f"\n🔨 REGISTERING ENTITIES...")
-    for name, address, private_key, entity_type, stake_amount in remaining_entities:
-        if not address or not private_key:
-            print(f"  ⏭️ Skipping {name} - missing config")
-            continue
-            
-        stake_wei = w3.to_wei(stake_amount, 'ether')
-        api_endpoint = f"http://{entity_type}2-api.moderntensor.com" if "2" in name else f"http://{entity_type}3-api.moderntensor.com"
-        
-        print(f"\n🚀 Registering {name}...")
-        try:
-            # Create account
-            account = w3.eth.account.from_key(private_key)
-            
-            # Check balance
-            balance = core_token.functions.balanceOf(address).call()
-            print(f"  💳 Balance: {Web3.from_wei(balance, 'ether')} CORE")
-            
-            if balance < stake_wei:
-                print(f"  ❌ Insufficient balance for {name}")
-                continue
-            
-            # Approve spending
-            approve_txn = core_token.functions.approve(
-                contract_address, stake_wei
-            ).build_transaction({
-                'from': address,
-                'gas': 100000,
-                'gasPrice': w3.eth.gas_price,
-                'nonce': w3.eth.get_transaction_count(address)
-            })
-            
-            signed_approve = w3.eth.account.sign_transaction(approve_txn, private_key)
-            approve_hash = w3.eth.send_raw_transaction(signed_approve.raw_transaction)
-            approve_receipt = w3.eth.wait_for_transaction_receipt(approve_hash)
-            
-            if approve_receipt.status == 1:
-                print(f"  ✅ Approved spending for {name}")
-            else:
-                print(f"  ❌ Approval failed for {name}")
-                continue
-            
-            time.sleep(3)
-            
-            # Register entity
-            if entity_type == "miner":
-                register_function = main_contract.functions.registerMiner(
-                    0,  # subnetId
-                    stake_wei,  # coreStake
-                    0,  # btcStake
-                    api_endpoint
+
+    # Load entities
+    entities_dir = Path("entities")
+
+    # Load miners (skip miner_1 since it's already registered)
+    miners = []
+    for i in range(2, 3):  # Only miner_2
+        miner_file = entities_dir / f"miner_{i}.json"
+        if miner_file.exists():
+            with open(miner_file, "r") as f:
+                miners.append(json.load(f))
+
+    # Load validators
+    validators = []
+    for i in range(1, 4):  # All 3 validators
+        validator_file = entities_dir / f"validator_{i}.json"
+        if validator_file.exists():
+            with open(validator_file, "r") as f:
+                validators.append(json.load(f))
+
+    print(
+        f"📋 Found {len(miners)} remaining miners and {len(validators)} validators to register"
+    )
+
+    success_count = 0
+    total_count = len(miners) + len(validators)
+
+    # Register remaining miners
+    if miners:
+        print(f"\n🔨 REGISTERING REMAINING MINERS:")
+        for i, miner in enumerate(miners):
+            address = miner["address"]
+            private_key = miner["private_key"]
+            api_endpoint = miner["api_endpoint"]
+
+            print(f"\nMiner {i+2}: {address}")  # +2 because we skip miner_1
+
+            try:
+                # Approve tokens
+                nonce = w3.eth.get_transaction_count(address)
+
+                approve_txn = core_token.functions.approve(
+                    contract_address, stake_amount
+                ).build_transaction(
+                    {
+                        "from": address,
+                        "nonce": nonce,
+                        "gas": 100000,
+                        "gasPrice": w3.to_wei("50", "gwei"),
+                    }
                 )
-            else:
-                register_function = main_contract.functions.registerValidator(
-                    0,  # subnetId
-                    stake_wei,  # coreStake
-                    0,  # btcStake
-                    api_endpoint
+
+                signed_approve = w3.eth.account.sign_transaction(
+                    approve_txn, private_key
                 )
-            
-            register_txn = register_function.build_transaction({
-                'from': address,
-                'gas': 500000,
-                'gasPrice': w3.eth.gas_price,
-                'nonce': w3.eth.get_transaction_count(address),
-                'value': 0
-            })
-            
-            signed_register = w3.eth.account.sign_transaction(register_txn, private_key)
-            register_hash = w3.eth.send_raw_transaction(signed_register.raw_transaction)
-            
-            print(f"  📤 Registration TX: {register_hash.hex()}")
-            register_receipt = w3.eth.wait_for_transaction_receipt(register_hash)
-            
-            if register_receipt.status == 1:
-                print(f"  🎉 {name} registered successfully!")
-                print(f"  🔗 Explorer: https://scan.test.btcs.network/tx/{register_hash.hex()}")
-            else:
-                print(f"  ❌ Registration failed for {name}")
-                
-        except Exception as e:
-            print(f"  ❌ Registration error for {name}: {e}")
-        
-        time.sleep(5)
-    
-    # Final network state check
-    print(f"\n📊 FINAL NETWORK STATE:")
+                approve_hash = w3.eth.send_raw_transaction(
+                    signed_approve.raw_transaction
+                )
+                w3.eth.wait_for_transaction_receipt(approve_hash, timeout=60)
+                print(f"  ✅ Tokens approved")
+
+                # Register miner
+                nonce = w3.eth.get_transaction_count(address)
+
+                register_txn = contract.functions.registerMiner(
+                    subnet_id, stake_amount, 0, api_endpoint  # bitcoin stake
+                ).build_transaction(
+                    {
+                        "from": address,
+                        "nonce": nonce,
+                        "gas": 500000,
+                        "gasPrice": w3.to_wei("50", "gwei"),
+                    }
+                )
+
+                signed_register = w3.eth.account.sign_transaction(
+                    register_txn, private_key
+                )
+                register_hash = w3.eth.send_raw_transaction(
+                    signed_register.raw_transaction
+                )
+
+                print(f"  📡 Registration sent: {register_hash.hex()}")
+                receipt = w3.eth.wait_for_transaction_receipt(
+                    register_hash, timeout=120
+                )
+
+                if receipt.status == 1:
+                    print(f"  🎉 MINER REGISTERED SUCCESSFULLY!")
+                    success_count += 1
+                else:
+                    print(f"  ❌ Registration failed")
+
+            except Exception as e:
+                print(f"  ❌ Error: {e}")
+
+    # Register validators
+    if validators:
+        print(f"\n✅ REGISTERING VALIDATORS:")
+        for i, validator in enumerate(validators):
+            address = validator["address"]
+            private_key = validator["private_key"]
+            api_endpoint = validator["api_endpoint"]
+
+            print(f"\nValidator {i+1}: {address}")
+
+            try:
+                # Approve tokens
+                nonce = w3.eth.get_transaction_count(address)
+
+                approve_txn = core_token.functions.approve(
+                    contract_address, stake_amount
+                ).build_transaction(
+                    {
+                        "from": address,
+                        "nonce": nonce,
+                        "gas": 100000,
+                        "gasPrice": w3.to_wei("50", "gwei"),
+                    }
+                )
+
+                signed_approve = w3.eth.account.sign_transaction(
+                    approve_txn, private_key
+                )
+                approve_hash = w3.eth.send_raw_transaction(
+                    signed_approve.raw_transaction
+                )
+                w3.eth.wait_for_transaction_receipt(approve_hash, timeout=60)
+                print(f"  ✅ Tokens approved")
+
+                # Register validator
+                nonce = w3.eth.get_transaction_count(address)
+
+                register_txn = contract.functions.registerValidator(
+                    subnet_id, stake_amount, 0, api_endpoint  # bitcoin stake
+                ).build_transaction(
+                    {
+                        "from": address,
+                        "nonce": nonce,
+                        "gas": 500000,
+                        "gasPrice": w3.to_wei("50", "gwei"),
+                    }
+                )
+
+                signed_register = w3.eth.account.sign_transaction(
+                    register_txn, private_key
+                )
+                register_hash = w3.eth.send_raw_transaction(
+                    signed_register.raw_transaction
+                )
+
+                print(f"  📡 Registration sent: {register_hash.hex()}")
+                receipt = w3.eth.wait_for_transaction_receipt(
+                    register_hash, timeout=120
+                )
+
+                if receipt.status == 1:
+                    print(f"  🎉 VALIDATOR REGISTERED SUCCESSFULLY!")
+                    success_count += 1
+                else:
+                    print(f"  ❌ Registration failed")
+
+            except Exception as e:
+                print(f"  ❌ Error: {e}")
+
+    # Final status
+    print(f"\n📊 REGISTRATION SUMMARY:")
+    print(f"  ✅ Successful: {success_count}/{total_count}")
+    print(f"  🎯 Success Rate: {success_count/total_count*100:.1f}%")
+
+    # Check final network stats
     try:
-        network_stats = main_contract.functions.getNetworkStats().call()
-        print(f"  👥 Total Miners: {network_stats[0]} / 2 target")
-        print(f"  🛡️ Total Validators: {network_stats[1]} / 3 target")
+        network_stats = contract.functions.getNetworkStats().call()
+        print(f"\n🌐 FINAL NETWORK STATUS:")
+        print(f"  👥 Total Miners: {network_stats[0]}")
+        print(f"  🛡️ Total Validators: {network_stats[1]}")
         print(f"  💰 Total Staked: {Web3.from_wei(network_stats[2], 'ether')} CORE")
-        
-        if network_stats[0] >= 2 and network_stats[1] >= 3:
-            print(f"\n🎉 TARGET ACHIEVED! 2 Miners + 3 Validators!")
+
+        if network_stats[0] >= 2 and network_stats[1] >= 2:
+            print(f"\n🎉 NETWORK READY FOR OPERATION!")
+            print(f"✅ Sufficient entities registered")
+            print(f"✅ Ready to start consensus")
         else:
-            print(f"\n⚠️ Still need more entities to reach target")
-            
+            print(f"\n⚠️ Network needs more entities:")
+            print(f"   Miners: {network_stats[0]}/2")
+            print(f"   Validators: {network_stats[1]}/2")
+
     except Exception as e:
-        print(f"  ❌ Error getting final stats: {e}")
-    
-    print(f"\n🔍 Check contract: https://scan.test.btcs.network/address/{contract_address}")
+        print(f"❌ Error checking network stats: {e}")
+
+    return success_count == total_count
+
 
 if __name__ == "__main__":
     register_remaining_entities()

@@ -16,7 +16,7 @@ def main():
     print("=" * 50)
 
     # New contract info
-    new_contract = "0x3dACb0Ac7A913Fa94f383f7d6CF0a7BC2b5498DD"
+    new_contract = "0x594fc12B3e3AB824537b947765dd9409DAAAa143"
     new_core_token = "0x7B74e4868c8C500D6143CEa53a5d2F94e94c7637"
     new_btc_token = "0x44Ed1441D79FfCb76b7D6644dBa930309E0E6F31"
 

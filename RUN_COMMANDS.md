@@ -25,7 +25,7 @@ python scripts/run_miner_core.py
 
 ### **✅ All Set:**
 - Core RPC: https://rpc.test.btcs.network
-- Contract: 0x3dACb0Ac7A913Fa94f383f7d6CF0a7BC2b5498DD
+- Contract: 0x594fc12B3e3AB824537b947765dd9409DAAAa143
 - Miner 1: 0xd89fBAbb72190ed22F012ADFC693ad974bAD3005
 - Miner 2: 0x16102CA8BEF74fb6214AF352989b664BF0e50498
 - Validator 1: 0x25F3D6316017FDF7A4f4e54003b29212a198768f

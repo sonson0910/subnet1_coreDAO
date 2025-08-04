@@ -16,7 +16,7 @@ def main():
     print("=" * 50)
 
     # Contract info from deployment
-    contract_address = "0x56C2F2d0914DF10CE048e07EF1eCbac09AF80cd2"
+    contract_address = "0x594fc12B3e3AB824537b947765dd9409DAAAa143"
     core_token_address = "0xEe46b1863b638667F50FAcf1db81eD4074991310"
     btc_token_address = "0xA92f0E66Ca8CeffBcd6f09bE2a8aA489c1604A0c"
 

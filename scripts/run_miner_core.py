@@ -17,12 +17,20 @@ from rich.logging import RichHandler
 # --- Add project root to sys.path ---
 project_root = Path(__file__).parent.parent  # Go to subnet1_aptos root
 sys.path.insert(0, str(project_root))
+
 # Add moderntensor_aptos path (parent directory)
 moderntensor_path = project_root.parent / "moderntensor_aptos"
 sys.path.insert(0, str(moderntensor_path))
+
+# Also add the parent directory to ensure mt_core is found
+parent_path = project_root.parent
+sys.path.insert(0, str(parent_path))
+
 print(f"🔍 Project root: {project_root}")
 print(f"🔍 ModernTensor path: {moderntensor_path}")
 print(f"🔍 ModernTensor exists: {moderntensor_path.exists()}")
+print(f"🔍 Parent path: {parent_path}")
+print(f"🔍 Python path: {sys.path[:3]}")
 
 # --- Import required classes ---
 try:

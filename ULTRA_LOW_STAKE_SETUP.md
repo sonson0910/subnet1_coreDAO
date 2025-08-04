@@ -8,7 +8,7 @@
 ## 🎉 **DEPLOYMENT SUCCESS**
 
 ### **✅ Ultra-Low Stake Contract Deployed**
-- **Contract Address:** `0x3dACb0Ac7A913Fa94f383f7d6CF0a7BC2b5498DD`
+- **Contract Address:** `0x594fc12B3e3AB824537b947765dd9409DAAAa143`
 - **CORE Token:** `0x7B74e4868c8C500D6143CEa53a5d2F94e94c7637`
 - **BTC Token:** `0x44Ed1441D79FfCb76b7D6644dBa930309E0E6F31`
 - **Network:** Core Testnet (Chain ID: 1115)
@@ -63,7 +63,7 @@
 ## 🔄 **REGISTRATION PROCESS**
 
 ### **Option 1: Manual Registration (Recommended)**
-1. Visit: [Contract on Explorer](https://scan.test.btcs.network/address/0x3dACb0Ac7A913Fa94f383f7d6CF0a7BC2b5498DD)
+1. Visit: [Contract on Explorer](https://scan.test.btcs.network/address/0x594fc12B3e3AB824537b947765dd9409DAAAa143)
 2. Connect deployer wallet: `0xdde6737eDe1ce1fde47209E2eE8fE80E9efF5C33`
 3. Call functions manually via Web3 interface
 
@@ -129,7 +129,7 @@ python monitor_tokens.py
 ## 🔗 **IMPORTANT LINKS**
 
 ### **Contract Information**
-- **Main Contract:** [0x3dACb0Ac...](https://scan.test.btcs.network/address/0x3dACb0Ac7A913Fa94f383f7d6CF0a7BC2b5498DD)
+- **Main Contract:** [0x594fc12B...](https://scan.test.btcs.network/address/0x594fc12B3e3AB824537b947765dd9409DAAAa143)
 - **CORE Token:** [0x7B74e486...](https://scan.test.btcs.network/address/0x7B74e4868c8C500D6143CEa53a5d2F94e94c7637)
 - **BTC Token:** [0x44Ed1441...](https://scan.test.btcs.network/address/0x44Ed1441D79FfCb76b7D6644dBa930309E0E6F31)
 - **Deployer:** [0xdde6737e...](https://scan.test.btcs.network/address/0xdde6737eDe1ce1fde47209E2eE8fE80E9efF5C33)
@@ -148,7 +148,7 @@ python monitor_tokens.py
 python register_ultra_low_stake.py
 
 # 2. Register entities (manual via explorer)
-# Visit: https://scan.test.btcs.network/address/0x3dACb0Ac7A913Fa94f383f7d6CF0a7BC2b5498DD
+# Visit: https://scan.test.btcs.network/address/0x594fc12B3e3AB824537b947765dd9409DAAAa143
 
 # 3. Start network
 python start_network.py

@@ -47,8 +47,8 @@ def force_register_validator_1():
         / "smartcontract"
         / "artifacts"
         / "contracts"
-        / "ModernTensorAI_v2_Bittensor.sol"
-        / "ModernTensorAI_v2_Bittensor.json"
+        / "ModernTensorAI_Optimized.sol"
+        / "ModernTensorAI_Optimized.json"
     )
 
     with open(abi_path, "r") as f:

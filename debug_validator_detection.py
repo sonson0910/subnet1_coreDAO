@@ -12,7 +12,9 @@ import os
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from moderntensor_aptos.mt_core.consensus.validator_node_core import ValidatorNodeCore
+from moderntensor_aptos.mt_core.consensus.validator_node_consensus import (
+    ValidatorNodeConsensus,
+)
 from moderntensor_aptos.mt_core.config.config_loader import ModernTensorConfig
 
 # Set up logging

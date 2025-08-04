@@ -66,7 +66,7 @@ Edit `.env` file with your specific configuration:
 # Core Blockchain Configuration
 CORE_NODE_URL=https://rpc.test.btcs.network
 CORE_CHAIN_ID=1115
-CORE_CONTRACT_ADDRESS=0x1234567890abcdef1234567890abcdef12345678
+CORE_CONTRACT_ADDRESS=0x594fc12B3e3AB824537b947765dd9409DAAAa143
 
 # Validator Configuration
 SUBNET1_VALIDATOR_ID=subnet1_validator_001

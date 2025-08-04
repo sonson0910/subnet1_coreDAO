@@ -47,7 +47,7 @@ def main():
         load_dotenv(env_path)
 
     # Contract configuration
-    contract_address = "0x56C2F2d0914DF10CE048e07EF1eCbac09AF80cd2"
+    contract_address = "0x594fc12B3e3AB824537b947765dd9409DAAAa143"
     rpc_url = "https://rpc.test.btcs.network"
     deployer_private_key = (
         "a07b6e0db803f9a21ffd1001c76b0aa0b313aaba8faab8c771af47301c4452b4"

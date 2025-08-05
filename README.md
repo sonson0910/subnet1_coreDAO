@@ -64,7 +64,7 @@ Edit `.env` file with your specific configuration:
 
 ```env
 # Core Blockchain Configuration
-CORE_NODE_URL=https://rpc.test.btcs.network
+CORE_NODE_URL=https://rpc.test2.btcs.network
 CORE_CHAIN_ID=1115
 CORE_CONTRACT_ADDRESS=0x594fc12B3e3AB824537b947765dd9409DAAAa143
 
@@ -134,8 +134,8 @@ python monitor_tokens.py
 
 ### Core Blockchain Networks
 
-- **Testnet**: `https://rpc.test.btcs.network` (Chain ID: 1115)
-- **Mainnet**: `https://rpc.coredao.org` (Chain ID: 1116)
+- **Testnet**: `https://rpc.test2.btcs.network` (Chain ID: 1115)
+- **Mainnet**: `https://rpc.test2.btcs.network` (Chain ID: 1116)
 
 ### Faucet
 

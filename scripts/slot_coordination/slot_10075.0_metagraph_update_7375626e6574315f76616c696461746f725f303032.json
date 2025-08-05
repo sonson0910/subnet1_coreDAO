@@ -1,9 +1,0 @@
-{
-  "validator_uid": "7375626e6574315f76616c696461746f725f303032",
-  "slot": 10075.0,
-  "phase": "metagraph_update",
-  "timestamp": 1753942931.159287,
-  "extra_data": {
-    "flexible_join": true
-  }
-}

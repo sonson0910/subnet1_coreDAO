@@ -14,19 +14,35 @@ from typing import Optional
 from rich.logging import RichHandler
 
 # --- Add project root to sys.path ---
-project_root = Path(__file__).parent.parent  # Go to subnet1_aptos root
-sys.path.insert(0, str(project_root))
-# Add moderntensor_aptos path (parent directory)
-moderntensor_path = project_root.parent / "moderntensor_aptos"
-sys.path.insert(0, str(moderntensor_path))
+# Current file: /Users/sonson/Documents/code/moderntensor_core/subnet1_aptos/scripts/run_validator_core.py
+# We need: /Users/sonson/Documents/code/moderntensor_core/subnet1_aptos (project_root)
+# And: /Users/sonson/Documents/code/moderntensor_core (for moderntensor_aptos)
+
+script_path = Path(__file__).resolve()  # Full absolute path
+project_root = script_path.parent.parent  # subnet1_aptos directory
+core_root = project_root.parent  # moderntensor_core directory
+
+# Add paths in correct order
+sys.path.insert(0, str(core_root))  # For moderntensor_aptos import
+sys.path.insert(0, str(project_root))  # For subnet1.validator import
+
+# Debug: Verify paths are correct
+logger = logging.getLogger(__name__)
+logger.debug(
+    f"Project paths - Script: {script_path}, Core: {core_root}, Project: {project_root}"
+)
 
 # --- Import required classes ---
 try:
     from subnet1.validator import Subnet1Validator
-    from mt_core.config.settings import settings as sdk_settings
-    from mt_core.account import Account
+    from moderntensor_aptos.mt_core.config.settings import settings as sdk_settings
+    from moderntensor_aptos.mt_core.account import Account
 except ImportError as e:
     print(f"❌ FATAL: Import Error: {e}")
+    print("Make sure moderntensor_aptos is properly installed and in path")
+    import traceback
+
+    traceback.print_exc()
     sys.exit(1)
 
 # --- Load environment variables (.env) ---
@@ -48,6 +64,11 @@ rich_handler = RichHandler(
 logging.basicConfig(
     level=log_level, format="%(message)s", datefmt="[%X]", handlers=[rich_handler]
 )
+
+# Suppress noisy debug logs from web3 and other libraries
+logging.getLogger("web3.providers.HTTPProvider").setLevel(logging.INFO)
+logging.getLogger("web3.RequestManager").setLevel(logging.INFO)
+logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 
 logger = logging.getLogger(__name__)
 
@@ -180,8 +201,10 @@ async def run_validator_process():
         logger.info(f"🛠️ Initializing Subnet1Validator {validator_id} instance...")
 
         # Import proper classes
-        from mt_core.core.datatypes import ValidatorInfo
-        from mt_core.core_client.contract_client import ModernTensorCoreClient
+        from moderntensor_aptos.mt_core.core.datatypes import ValidatorInfo
+        from moderntensor_aptos.mt_core.core_client.contract_client import (
+            ModernTensorCoreClient,
+        )
 
         # Create ValidatorInfo object for the SDK
         validator_info = ValidatorInfo(

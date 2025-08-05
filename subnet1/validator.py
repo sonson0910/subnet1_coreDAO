@@ -32,11 +32,27 @@ from fastapi.responses import JSONResponse
 import sys
 import asyncio
 
+# Setup path for moderntensor_aptos import
+import sys
+from pathlib import Path
+
+# Add moderntensor_aptos to path if not already available
+current_file = Path(__file__).resolve()
+subnet1_dir = current_file.parent.parent  # subnet1_aptos directory
+core_root = subnet1_dir.parent  # moderntensor_core directory
+
+if str(core_root) not in sys.path:
+    sys.path.insert(0, str(core_root))
+
 # Import từ SDK Moderntensor (đã cài đặt)
 try:
-    from mt_core.consensus.validator_node_core import ValidatorNodeCore
-    from mt_core.consensus.validator_node_refactored import ValidatorNode
-    from mt_core.core.datatypes import (
+    from moderntensor_aptos.mt_core.consensus.validator_node_core import (
+        ValidatorNodeCore,
+    )
+    from moderntensor_aptos.mt_core.consensus.validator_node_refactored import (
+        ValidatorNode,
+    )
+    from moderntensor_aptos.mt_core.core.datatypes import (
         TaskAssignment,
         TaskModel,
         MinerResult,
@@ -57,7 +73,30 @@ except ImportError as e:
     # Create mock classes to prevent NameError
     class ValidatorNode:
         def __init__(self, *args, **kwargs):
+            # Mock core attribute
+            from types import SimpleNamespace
+
+            self.core = SimpleNamespace()
+            self.core.info = SimpleNamespace()
+            self.core.info.uid = (
+                kwargs.get("validator_info", SimpleNamespace()).uid
+                if hasattr(kwargs.get("validator_info", SimpleNamespace()), "uid")
+                else "unknown"
+            )
+            self.core.validator_instance = None
+
+        async def start(self):
+            """Mock start method"""
             pass
+
+        async def stop(self):
+            """Mock stop method"""
+            pass
+
+        # Add missing attributes for compatibility
+        @property
+        def flexible_consensus_enabled(self):
+            return False
 
     class TaskAssignment:
         def __init__(self, *args, **kwargs):
@@ -213,15 +252,37 @@ class Subnet1Validator(ValidatorNode):
         )
 
         # Set reference to self in core for subnet-specific scoring access
-        self.core.validator_instance = self
+        if hasattr(self, "core") and self.core:
+            self.core.validator_instance = self
+        else:
+            logger.warning(
+                f"ValidatorNode does not have 'core' attribute. Available attributes: {dir(self)}"
+            )
 
         # Track flexible consensus status from SDK
         self.subnet_flexible_mode = flexible_mode
 
-        logger.info(
-            f"✨ [bold]Subnet1Validator[/] initialized for UID: [cyan]{self.core.info.uid[:10]}...[/]"
-            f" (Flexible Consensus: {'✅' if self.flexible_consensus_enabled else '❌'})"
-        )
+        # Safe logging that doesn't crash if core is not available
+        if hasattr(self, "core") and self.core and hasattr(self.core, "info"):
+            uid_display = (
+                self.core.info.uid[:10] + "..."
+                if len(self.core.info.uid) > 10
+                else self.core.info.uid
+            )
+            consensus_status = (
+                "✅"
+                if hasattr(self, "flexible_consensus_enabled")
+                and self.flexible_consensus_enabled
+                else "❌"
+            )
+            logger.info(
+                f"✨ [bold]Subnet1Validator[/] initialized for UID: [cyan]{uid_display}[/]"
+                f" (Flexible Consensus: {consensus_status})"
+            )
+        else:
+            logger.info(
+                f"✨ [bold]Subnet1Validator[/] initialized (Core not available)"
+            )
         # Note: FastAPI server is already handled by ValidatorNodeNetwork
         # No need to create separate app here
 

@@ -12,6 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from typing import Optional
 from rich.logging import RichHandler
+from rich.console import Console
 
 # --- Add project root to sys.path ---
 # Current file: /Users/sonson/Documents/code/moderntensor_core/subnet1_aptos/scripts/run_validator_core.py
@@ -48,17 +49,34 @@ except ImportError as e:
 # --- Load environment variables (.env) ---
 env_path = project_root / ".env"
 
+# Force color output in terminals
+os.environ["FORCE_COLOR"] = "1"
+os.environ["CLICOLOR"] = "1"
+os.environ["CLICOLOR_FORCE"] = "1"
+
 # --- Configure Logging with RichHandler ---
 log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
 log_level = getattr(logging, log_level_str, logging.INFO)
 
+# 🔥 CYBERPUNK CONSOLE CONFIGURATION 🔥
+console = Console(
+    force_terminal=True,
+    force_interactive=True,
+    color_system="truecolor",  # Full color support for cyberpunk
+    width=120,
+    legacy_windows=False,
+    style="bold bright_green on black",  # Cyberpunk terminal style
+)
+
+# 🤖 CYBERPUNK RICH HANDLER 🤖
 rich_handler = RichHandler(
+    console=console,
     show_time=True,
     show_level=True,
     show_path=False,
-    markup=True,
+    markup=True,  # Enable full markup for cyberpunk effects
     rich_tracebacks=True,
-    log_time_format="[%Y-%m-%d %H:%M:%S]",
+    log_time_format="[bold cyan][%Y-%m-%d %H:%M:%S][/]",
 )
 
 logging.basicConfig(
@@ -82,8 +100,25 @@ else:
 
 async def run_validator_process():
     """Async function to configure and run Subnet1 Validator for Core blockchain."""
-    logger.info(
-        "🛡️ --- Starting Enhanced Core Blockchain Validator Configuration & Process --- 🛡️"
+    # 🔥 CYBERPUNK STARTUP BANNER 🔥
+    console.print("\n" + "▓" * 100, style="bold bright_magenta")
+    console.print("█" * 100, style="bold bright_cyan on black")
+    console.print(
+        "██  ⚡ MODERNTENSOR CYBERPUNK VALIDATOR CORE ⚡  ██",
+        style="bold bright_yellow on bright_magenta",
+        justify="center",
+    )
+    console.print(
+        "██    🤖 NEURAL NETWORK CONSENSUS ENGINE 🤖    ██",
+        style="bold bright_green on black",
+        justify="center",
+    )
+    console.print("█" * 100, style="bold bright_cyan on black")
+    console.print("▓" * 100, style="bold bright_magenta")
+    console.print(
+        "  🔥 INITIALIZING QUANTUM BLOCKCHAIN MATRIX 🔥  ",
+        style="bold bright_red blink",
+        justify="center",
     )
 
     # === Get validator configuration from environment ===
@@ -157,19 +192,46 @@ async def run_validator_process():
         )
         return
 
-    logger.info(
-        f"🏗️ --- Subnet 1 Validator {validator_id} (Core Blockchain) Configuration --- 🏗️"
+    # 🤖 CYBERPUNK CONFIGURATION MATRIX 🤖
+    console.print(f"\n┌{'─' * 80}┐", style="bold bright_cyan")
+    console.print(
+        f"│ ⚡ [bold bright_magenta]CYBER VALIDATOR NODE {validator_id} NEURAL CONFIG[/] ⚡ │",
+        style="bold bright_cyan",
+        justify="center",
     )
-    logger.info(f"🆔 Validator Readable ID : [cyan]'{validator_readable_id}'[/]")
-    logger.info(f"🔑 Validator Address     : [yellow]{validator_address}[/]")
-    logger.info(f"🔑 On-Chain UID (Hex)    : [yellow]{expected_uid_hex}[/]")
-    logger.info(f"🏗️ Core Node URL         : [cyan]{core_node_url}[/]")
-    logger.info(f"📝 Contract Address      : [cyan]{core_contract_address}[/]")
-    logger.info(
-        f"👂 API Endpoint          : [link={validator_api_endpoint}]{validator_api_endpoint}[/link]"
+    console.print(f"├{'─' * 80}┤", style="bold bright_cyan")
+    console.print(
+        f"│ 🤖 [bold bright_green]Node Identity    :[/] [bright_yellow]{validator_readable_id:<40}[/] │",
+        style="bold bright_cyan",
     )
-    logger.info(
-        f"👂 Listening on          : [bold blue]{validator_host}:{validator_port}[/]"
+    console.print(
+        f"│ 🔑 [bold bright_green]Wallet Address   :[/] [bright_cyan]{validator_address:<40}[/] │",
+        style="bold bright_cyan",
+    )
+    console.print(
+        f"│ ⚡ [bold bright_green]Neural UID       :[/] [bright_magenta]{expected_uid_hex:<40}[/] │",
+        style="bold bright_cyan",
+    )
+    console.print(
+        f"│ 🌐 [bold bright_green]Blockchain RPC   :[/] [bright_blue]{core_node_url:<40}[/] │",
+        style="bold bright_cyan",
+    )
+    console.print(
+        f"│ 📜 [bold bright_green]Smart Contract   :[/] [bright_yellow]{core_contract_address:<40}[/] │",
+        style="bold bright_cyan",
+    )
+    console.print(
+        f"│ 🔗 [bold bright_green]API Neural Link  :[/] [bright_green]{validator_api_endpoint:<40}[/] │",
+        style="bold bright_cyan",
+    )
+    console.print(
+        f"│ 🚀 [bold bright_green]Network Interface:[/] [bold bright_red]{validator_host}:{validator_port:<37}[/] │",
+        style="bold bright_cyan",
+    )
+    console.print(f"└{'─' * 80}┘", style="bold bright_cyan")
+    console.print(
+        "🔥 [bold bright_red blink]CYBERPUNK NEURAL MATRIX ONLINE[/] 🔥",
+        justify="center",
     )
     logger.info(
         "-------------------------------------------------------------------------------"

@@ -1,8 +1,10 @@
 {
   "validator_uid": "7375626e6574315f76616c696461746f725f303031",
-  "slot": 0,
+  "slot": 841690,
   "phase": "task_assignment",
-  "timestamp": 1754410750.8817549,
+  "timestamp": 1754543435.001439,
   "joined_mid_slot": false,
-  "extra_data": {}
+  "extra_data": {
+    "task_assignment_stopped": true
+  }
 }

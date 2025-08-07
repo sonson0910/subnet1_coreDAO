@@ -73,6 +73,41 @@ else:
 
 def run_miner_process():
     """Function to configure and run Subnet1Miner for Core blockchain."""
+
+    # 🔥 CYBERPUNK UI: Miner Startup Header
+    try:
+        from moderntensor_aptos.mt_core.cli.cyberpunk_ui_extended import (
+            create_cyberpunk_console,
+        )
+
+        console = create_cyberpunk_console()
+
+        # Epic miner startup header
+        console.print()
+        console.print("[bold bright_green]" + "▀" * 80 + "[/bold bright_green]")
+        console.print("[bold bright_cyan]" + "█" * 80 + "[/bold bright_cyan]")
+        console.print(
+            "[bold bright_yellow on bright_green]⛏️🤖 QUANTUM MINER NEURAL CORE ACTIVATION 🤖⛏️[/bold bright_yellow on bright_green]".center(
+                80
+            )
+        )
+        console.print("[bold bright_magenta]" + "░▒▓█" * 20 + "[/bold bright_magenta]")
+        console.print()
+        console.print(
+            "[bold bright_cyan]║[/bold bright_cyan] [bright_yellow]🚀 INITIALIZING MINING MATRIX...[/bright_yellow] [bold bright_cyan]║[/bold bright_cyan]"
+        )
+        console.print(
+            "[bold bright_cyan]║[/bold bright_cyan] [bright_green]● AI CORES:[/bright_green] [bright_white]ONLINE[/bright_white] [bright_cyan]● QUANTUM ENGINE:[/bright_cyan] [bright_white]READY[/bright_white] [bold bright_cyan]║[/bold bright_cyan]"
+        )
+        console.print(
+            "[bold bright_cyan]║[/bold bright_cyan] [bright_magenta]● NEURAL NET:[/bright_magenta] [bright_white]SYNCHRONIZED[/bright_white] [bright_yellow]● MINING AI:[/bright_yellow] [bright_white]ACTIVE[/bright_white] [bold bright_cyan]║[/bold bright_cyan]"
+        )
+        console.print()
+        console.print("[bold bright_green]" + "▄" * 80 + "[/bold bright_green]")
+        console.print()
+    except ImportError:
+        pass
+
     logger.info("⛏️ --- Starting Core Blockchain Miner Configuration & Processes --- ⛏️")
 
     # === Get miner configuration from environment ===
@@ -135,6 +170,42 @@ def run_miner_process():
         return
 
     miner_host = os.getenv("SUBNET1_MINER_HOST", "0.0.0.0")
+
+    # 🔥 CYBERPUNK UI: Miner Configuration Display
+    try:
+        console = create_cyberpunk_console()
+
+        console.print()
+        console.print(
+            "[bold bright_cyan]╔══════════════════════ MINER CONFIGURATION MATRIX ══════════════════════╗[/bold bright_cyan]"
+        )
+        console.print(
+            "[bold bright_cyan]║[/bold bright_cyan]                                                                        [bold bright_cyan]║[/bold bright_cyan]"
+        )
+        console.print(
+            f"[bold bright_cyan]║[/bold bright_cyan] [bright_yellow]🆔 MINER UNIT ID:[/bright_yellow] [bright_white]{miner_readable_id}[/bright_white] [bold bright_cyan]║[/bold bright_cyan]"
+        )
+        console.print(
+            f"[bold bright_cyan]║[/bold bright_cyan] [bright_green]🔑 BLOCKCHAIN ADDRESS:[/bright_green] [bright_yellow]{miner_address[:30]}...[/bright_yellow] [bold bright_cyan]║[/bold bright_cyan]"
+        )
+        console.print(
+            f"[bold bright_cyan]║[/bold bright_cyan] [bright_magenta]👂 NEURAL INTERFACE:[/bright_magenta] [bright_white]{miner_host}:{miner_port}[/bright_white] [bold bright_cyan]║[/bold bright_cyan]"
+        )
+        console.print(
+            f"[bold bright_cyan]║[/bold bright_cyan] [bright_cyan]🎯 TARGET VALIDATOR:[/bright_cyan] [bright_white]{validator_name}[/bright_white] [bold bright_cyan]║[/bold bright_cyan]"
+        )
+        console.print(
+            f"[bold bright_cyan]║[/bold bright_cyan] [bright_red]➡️ QUANTUM UPLINK:[/bright_red] [bright_white]{validator_result_submit_url[:40]}...[/bright_white] [bold bright_cyan]║[/bold bright_cyan]"
+        )
+        console.print(
+            "[bold bright_cyan]║[/bold bright_cyan]                                                                        [bold bright_cyan]║[/bold bright_cyan]"
+        )
+        console.print(
+            "[bold bright_cyan]╚════════════════════════════════════════════════════════════════════════╝[/bold bright_cyan]"
+        )
+        console.print()
+    except:
+        pass
 
     logger.info("🖥️ --- Subnet 1 Miner AI Task Server Configuration --- 🖥️")
     logger.info(f"🆔 Miner Readable ID     : [cyan]'{miner_readable_id}'[/]")
@@ -205,6 +276,36 @@ def run_miner_process():
             miner_id=miner_readable_id,
         )
         logger.info("✅ Subnet1Miner instance initialized.")
+
+        # 🔥 CYBERPUNK UI: Miner Launch Status
+        try:
+            console = create_cyberpunk_console()
+            console.print()
+            console.print(
+                "[bold bright_yellow]"
+                + "◄" * 40
+                + " MINER LAUNCH SEQUENCE "
+                + "►" * 40
+                + "[/bold bright_yellow]"
+            )
+            console.print()
+            console.print(
+                f"[bright_cyan]🚀 STARTING MINER:[/bright_cyan] [bright_white]{expected_uid_hex[:20]}...[/bright_white]"
+            )
+            console.print(
+                f"[bright_green]👂 NEURAL INTERFACE:[/bright_green] [bright_yellow]{miner_host}:{miner_port}[/bright_yellow]"
+            )
+            console.print(
+                f"[bright_magenta]🎯 QUANTUM UPLINK:[/bright_magenta] [bright_white]{validator_result_submit_url[:50]}...[/bright_white]"
+            )
+            console.print(
+                f"[bright_red]⚡ STATUS:[/bright_red] [blink bright_green]ONLINE & MINING[/blink bright_green] 🔥"
+            )
+            console.print()
+            console.print("[bold bright_yellow]" + "◄" * 97 + "[/bold bright_yellow]")
+            console.print()
+        except:
+            pass
 
         logger.info(f"▶️ Starting Subnet1Miner main loop for UID {expected_uid_hex}...")
         logger.info(f"👂 Listening on: {miner_host}:{miner_port}")

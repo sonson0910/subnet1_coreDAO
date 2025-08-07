@@ -102,6 +102,28 @@ else:
 
 async def run_validator_process():
     """Async function to configure and run Subnet1 Validator for Core blockchain."""
+    
+    # 🔥 CYBERPUNK UI: Validator Startup Header
+    try:
+        from moderntensor_aptos.mt_core.cli.cyberpunk_ui_extended import create_cyberpunk_console
+        console = create_cyberpunk_console()
+        
+        # Epic validator startup header
+        console.print()
+        console.print("[bold bright_blue]" + "▀" * 80 + "[/bold bright_blue]")
+        console.print("[bold bright_cyan]" + "█" * 80 + "[/bold bright_cyan]")
+        console.print("[bold bright_yellow on bright_blue]🛡️🤖 QUANTUM VALIDATOR NEURAL CORE ONLINE 🤖🛡️[/bold bright_yellow on bright_blue]".center(80))
+        console.print("[bold bright_magenta]" + "░▒▓█" * 20 + "[/bold bright_magenta]")
+        console.print()
+        console.print("[bold bright_cyan]║[/bold bright_cyan] [bright_yellow]🚀 INITIALIZING VALIDATION MATRIX...[/bright_yellow] [bold bright_cyan]║[/bold bright_cyan]")
+        console.print("[bold bright_cyan]║[/bold bright_cyan] [bright_green]● CONSENSUS ENGINE:[/bright_green] [bright_white]ONLINE[/bright_white] [bright_cyan]● NEURAL NET:[/bright_cyan] [bright_white]READY[/bright_white] [bold bright_cyan]║[/bold bright_cyan]")
+        console.print("[bold bright_cyan]║[/bold bright_cyan] [bright_magenta]● SCORING AI:[/bright_magenta] [bright_white]SYNCHRONIZED[/bright_white] [bright_yellow]● QUANTUM CORE:[/bright_yellow] [bright_white]ACTIVE[/bright_white] [bold bright_cyan]║[/bold bright_cyan]")
+        console.print()
+        console.print("[bold bright_blue]" + "▄" * 80 + "[/bold bright_blue]")
+        console.print()
+    except ImportError:
+        pass
+    
     logger.info(
         "🛡️ --- Starting Enhanced Core Blockchain Validator Configuration & Process --- 🛡️"
     )
@@ -166,6 +188,26 @@ async def run_validator_process():
         )
         return
 
+    # 🔥 CYBERPUNK UI: Validator Configuration Display
+    try:
+        console = create_cyberpunk_console()
+        
+        console.print()
+        console.print("[bold bright_cyan]╔════════════════════ VALIDATOR CONFIGURATION MATRIX ════════════════════╗[/bold bright_cyan]")
+        console.print("[bold bright_cyan]║[/bold bright_cyan]                                                                        [bold bright_cyan]║[/bold bright_cyan]")
+        console.print(f"[bold bright_cyan]║[/bold bright_cyan] [bright_yellow]🆔 VALIDATOR UNIT ID:[/bright_yellow] [bright_white]{validator_readable_id}[/bright_white] [bold bright_cyan]║[/bold bright_cyan]")
+        console.print(f"[bold bright_cyan]║[/bold bright_cyan] [bright_green]🔑 BLOCKCHAIN ADDRESS:[/bright_green] [bright_yellow]{validator_address[:30]}...[/bright_yellow] [bold bright_cyan]║[/bold bright_cyan]")
+        console.print(f"[bold bright_cyan]║[/bold bright_cyan] [bright_magenta]🔑 ON-CHAIN UID:[/bright_magenta] [bright_white]{expected_uid_hex[:30]}...[/bright_white] [bold bright_cyan]║[/bold bright_cyan]")
+        console.print(f"[bold bright_cyan]║[/bold bright_cyan] [bright_cyan]🏗️ CORE NODE URL:[/bright_cyan] [bright_white]{core_node_url[:35]}...[/bright_white] [bold bright_cyan]║[/bold bright_cyan]")
+        console.print(f"[bold bright_cyan]║[/bold bright_cyan] [bright_red]📝 CONTRACT ADDRESS:[/bright_red] [bright_white]{core_contract_address[:30]}...[/bright_white] [bold bright_cyan]║[/bold bright_cyan]")
+        console.print(f"[bold bright_cyan]║[/bold bright_cyan] [bright_yellow]👂 NEURAL INTERFACE:[/bright_yellow] [bright_white]{validator_host}:{validator_port}[/bright_white] [bold bright_cyan]║[/bold bright_cyan]")
+        console.print(f"[bold bright_cyan]║[/bold bright_cyan] [bright_blue]🌐 API ENDPOINT:[/bright_blue] [bright_white]{validator_api_endpoint[:40]}...[/bright_white] [bold bright_cyan]║[/bold bright_cyan]")
+        console.print("[bold bright_cyan]║[/bold bright_cyan]                                                                        [bold bright_cyan]║[/bold bright_cyan]")
+        console.print("[bold bright_cyan]╚════════════════════════════════════════════════════════════════════════╝[/bold bright_cyan]")
+        console.print()
+    except:
+        pass
+    
     logger.info(
         f"🏗️ --- Subnet 1 Validator {validator_id} (Core Blockchain) Configuration --- 🏗️"
     )
@@ -246,6 +288,22 @@ async def run_validator_process():
         )
         logger.info(f"✅ Subnet1Validator {validator_id} instance initialized.")
 
+        # 🔥 CYBERPUNK UI: Validator Launch Status
+        try:
+            console = create_cyberpunk_console()
+            console.print()
+            console.print("[bold bright_blue]" + "◄" * 40 + " VALIDATOR LAUNCH SEQUENCE " + "►" * 40 + "[/bold bright_blue]")
+            console.print()
+            console.print(f"[bright_cyan]🚀 STARTING VALIDATOR:[/bright_cyan] [bright_white]{validator_id}[/bright_white] [bright_yellow]({expected_uid_hex[:20]}...)[/bright_yellow]")
+            console.print(f"[bright_green]🛡️ CONSENSUS MODE:[/bright_green] [bright_yellow]FLEXIBLE VALIDATION[/bright_yellow]")
+            console.print(f"[bright_magenta]🌐 NEURAL INTERFACE:[/bright_magenta] [bright_white]{validator_host}:{validator_port}[/bright_white]")
+            console.print(f"[bright_red]⚡ STATUS:[/bright_red] [blink bright_green]ONLINE & VALIDATING[/blink bright_green] 🔥")
+            console.print()
+            console.print("[bold bright_blue]" + "◄" * 97 + "[/bold bright_blue]")
+            console.print()
+        except:
+            pass
+        
         # Run Validator using proper async context manager
         logger.info(
             f"▶️ Starting Subnet1Validator {validator_id} main loop for UID {expected_uid_hex}..."

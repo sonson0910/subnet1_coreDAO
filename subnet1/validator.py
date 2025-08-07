@@ -426,6 +426,18 @@ class Subnet1Validator(ValidatorNode):
                 f"   📊 CLIP Score: {score:.4f} for prompt: '{original_prompt[:50]}...'"
             )
 
+            # 🔥 CYBERPUNK UI: CLIP Scoring Display
+            try:
+                from moderntensor_aptos.mt_core.cli.cyberpunk_ui_extended import (
+                    print_cyberpunk_clip_scoring,
+                )
+
+                print_cyberpunk_clip_scoring(
+                    original_prompt, score, task_data.get("task_id", "unknown")
+                )
+            except ImportError:
+                pass
+
         except Exception as e:
             logger.exception(f"Scoring failed with exception: {e}")
             score = 0.0

@@ -1,0 +1,15 @@
+{
+  "contract_address": "0x594fc12B3e3AB824537b947765dd9409DAAAa143",
+  "network": "core_testnet",
+  "chain_id": 1115,
+  "network_stats": null,
+  "entities": {
+    "miners": [],
+    "validators": []
+  },
+  "configuration": {
+    "core_token": "0x7B74e4868c8C500D6143CEa53a5d2F94e94c7637",
+    "btc_token": "0x44Ed1441D79FfCb76b7D6644dBa930309E0E6F31",
+    "rpc_url": "https://rpc.test.btcs.network"
+  }
+}

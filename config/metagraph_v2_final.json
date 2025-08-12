@@ -49,7 +49,7 @@
   },
   "contract_info": {
     "address": "0xaef80dF33B6F9d0c9Fa9BA6F960eb8227fF182f8",
-    "version": "2.0 - Core Edition",
+    "version": "2.0 - Bittensor Edition",
     "features": [
       "UID-based indexing",
       "Trust scores",

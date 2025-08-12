@@ -1,0 +1,12 @@
+{
+  "name": "demo_hotkey_miner",
+  "type": "miner", 
+  "address": "0x9cc8CB3Ce44F5A61beD045E0b15A491d510035e1",
+  "private_key": "a6d219c8f8b1b73441324d918412cf93e77af3833ebed94826ef844f4cf4b9a4",
+  "stake_amount": "0.05",
+  "compute_power": 8000,
+  "api_endpoint": "http://localhost:8103",
+  "subnet_id": 0,
+  "gas_reserve": "9.95",
+  "updated_for": "demo_registration_with_hd_wallet"
+}

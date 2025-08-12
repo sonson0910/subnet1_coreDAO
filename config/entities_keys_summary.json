@@ -1,0 +1,28 @@
+{
+  "entities_with_keys": {
+    "miner_1": {
+      "address": "0xd89fBAbb72190ed22F012ADFC693ad974bAD3005",
+      "private_key": "e9c03148c011d553d43b485d73b1407d24f1498a664f782dc0204e524855be4e",
+      "api_endpoint": "http://localhost:8101",
+      "stake": "0.05"
+    },
+    "miner_2": {
+      "address": "0x16102CA8BEF74fb6214AF352989b664BF0e50498", 
+      "private_key": "3ace434e2cd05cd0e614eb5d423cf04e4b925c17db9869e9c598851f88f52840",
+      "api_endpoint": "http://localhost:8102",
+      "stake": "0.05"
+    },
+    "validator_1": {
+      "address": "0x25F3D6316017FDF7A4f4e54003b29212a198768f",
+      "private_key": "3ac6e82cf34e51d376395af0338d0b1162c1d39b9d34614ed40186fd2367b33d", 
+      "api_endpoint": "http://localhost:8001",
+      "stake": "0.08"
+    },
+    "validator_2": {
+      "address": "0x352516F491DFB3E6a55bFa9c58C551Ef10267dbB",
+      "private_key": "df51093c674459eb0a5cc8a273418061fe4d7ca189bd84b74f478271714e0920",
+      "api_endpoint": "http://localhost:8002", 
+      "stake": "0.08"
+    }
+  }
+}

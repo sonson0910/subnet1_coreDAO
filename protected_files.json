@@ -1,0 +1,90 @@
+{
+  "critical_files": {
+    "description": "Files that are absolutely critical for project functionality and should NEVER be deleted",
+    "files": [
+      "README.md",
+      ".env",
+      "requirements.txt",
+      "subnet1/__init__.py",
+      "subnet1/config.py",
+      "subnet1/validator.py",
+      "subnet1/miner.py",
+      "subnet1/models/__init__.py",
+      "subnet1/scoring/__init__.py",
+      "scripts/run_validator_core.py",
+      "scripts/run_miner_core.py",
+      "tests/__init__.py",
+      "tests/test_validator.py",
+      "tests/test_miner.py",
+      "config/core_metagraph_data.json",
+      "config/core_services_report.json",
+      "config/entities_keys_summary.json",
+      "entities/miner_1.json",
+      "entities/miner_2.json",
+      "entities/validator_1.json",
+      "entities/validator_2.json"
+    ]
+  },
+  "important_files": {
+    "description": "Files that are important for project structure and should be preserved unless explicitly requested",
+    "files": [
+      "subnet1/models/image_generator.py",
+      "subnet1/scoring/clip_scorer.py",
+      "scripts/check_entities_vs_metagraph.py",
+      "scripts/check_transaction_logs.py",
+      "scripts/check_validator_sync.py",
+      "setup/create_env_file.py",
+      "setup/create_subnet_and_register.py",
+      "setup/update_api_endpoints.py",
+      "transfers/mint_core_tokens.py",
+      "transfers/mint_tokens_for_entities.py",
+      "transfers/send_native_core.py"
+    ]
+  },
+  "protected_directories": {
+    "description": "Directories that contain important project structure and should be preserved",
+    "directories": [
+      "subnet1/",
+      "scripts/",
+      "tests/",
+      "config/",
+      "entities/",
+      "setup/",
+      "transfers/",
+      "docs/"
+    ]
+  },
+  "removable_patterns": {
+    "description": "File patterns that can be safely removed during cleanup",
+    "patterns": [
+      ".* \\d+\\.py$",
+      ".* \\d+\\.json$",
+      ".* \\d+\\.md$",
+      ".* \\d+\\.txt$",
+      ".* \\d+\\.backup.*$",
+      ".* \\d+\\.v\\d+$",
+      ".*\\.backup.*$",
+      ".*\\.v\\d+$",
+      ".*_backup.*$",
+      ".*_v\\d+$",
+      "test_.* \\d+\\.py$",
+      "start_.* \\d+\\.py$",
+      ".*\\.log$",
+      ".*\\.tmp$",
+      ".*\\.temp$"
+    ]
+  },
+  "cleanup_directories": {
+    "description": "Directories that can be cleaned up (contents will be backed up first)",
+    "directories": [
+      "backup/",
+      "fixes/"
+    ]
+  },
+  "backup_strategy": {
+    "description": "How files are backed up before deletion",
+    "strategy": "All files are backed up to cleanup_backup/ directory before deletion",
+    "backup_location": "cleanup_backup/",
+    "preserve_structure": true
+  }
+}
